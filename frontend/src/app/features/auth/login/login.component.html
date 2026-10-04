@@ -1,0 +1,119 @@
+<main class="auth-page">
+  <section class="story-panel" aria-labelledby="story-title">
+    <a class="brand-wordmark brand-wordmark--light" routerLink="/" aria-label="DevFlow AI home">
+      <span class="brand-mark" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none">
+          <path d="M5 7.5 12 3l7 4.5v9L12 21l-7-4.5v-9Z" stroke="currentColor" stroke-width="1.7" />
+          <path d="m8.5 10 3.5-2 3.5 2v4L12 16l-3.5-2v-4Z" fill="currentColor" opacity=".95" />
+          <path d="M12 8v8M8.5 10l7 4M15.5 10l-7 4" stroke="white" stroke-opacity=".8" stroke-width="1.1" />
+        </svg>
+      </span>
+      <strong>DevFlow <span>AI</span></strong>
+    </a>
+
+    <div class="story-copy">
+      <span class="story-kicker"><span></span> Engineering operations, intelligently connected</span>
+      <h1 id="story-title">Turn production incidents into learning.</h1>
+      <p>
+        Bring people, AI analysis, runbooks, and operational context together in one calm,
+        accountable workspace.
+      </p>
+
+      <div class="workflow" aria-label="DevFlow incident workflow">
+        <div class="workflow__item">
+          <span class="workflow__icon workflow__icon--blue">01</span>
+          <span><strong>Detect</strong><small>Signals become structured incidents</small></span>
+        </div>
+        <div class="workflow__line"></div>
+        <div class="workflow__item">
+          <span class="workflow__icon workflow__icon--cyan">02</span>
+          <span><strong>Investigate</strong><small>AI surfaces context and next steps</small></span>
+        </div>
+        <div class="workflow__line"></div>
+        <div class="workflow__item">
+          <span class="workflow__icon workflow__icon--teal">03</span>
+          <span><strong>Learn</strong><small>Resolutions strengthen the knowledge base</small></span>
+        </div>
+      </div>
+    </div>
+
+    <p class="story-footnote">Human decisions remain in the loop—at every critical step.</p>
+  </section>
+
+  <section class="login-panel" aria-labelledby="login-title">
+    <div class="login-card">
+      <div class="mobile-brand">
+        <span class="brand-wordmark">
+          <span class="brand-mark" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none">
+              <path d="M5 7.5 12 3l7 4.5v9L12 21l-7-4.5v-9Z" stroke="currentColor" stroke-width="1.7" />
+              <path d="m8.5 10 3.5-2 3.5 2v4L12 16l-3.5-2v-4Z" fill="currentColor" />
+            </svg>
+          </span>
+          <strong>DevFlow <span>AI</span></strong>
+        </span>
+      </div>
+
+      <div class="login-heading">
+        <span class="eyebrow">Secure workspace</span>
+        <h2 id="login-title">Welcome back</h2>
+        <p>Use your organization identity to access the operations workspace.</p>
+      </div>
+
+      @if (errorMessage()) {
+        <div class="form-alert form-alert--error" role="alert">
+          <span aria-hidden="true">!</span>
+          <span>{{ errorMessage() }}</span>
+        </div>
+      }
+
+      <form [formGroup]="loginForm" (ngSubmit)="signIn()" novalidate>
+        <div class="field">
+          <label for="username">Work email or username</label>
+          <input
+            id="username"
+            type="text"
+            formControlName="username"
+            autocomplete="username"
+            placeholder="you@company.com"
+          />
+          @if (loginForm.controls.username.touched && loginForm.controls.username.invalid) {
+            <span class="field-error">Enter your work email or username.</span>
+          }
+        </div>
+
+        <button class="button button--block sign-in-button" type="submit" [disabled]="loading()">
+          @if (loading()) {
+            <span class="spinner" aria-hidden="true"></span>
+            Connecting…
+          } @else {
+            Continue with secure sign-in
+            <svg viewBox="0 0 20 20" aria-hidden="true">
+              <path d="M4 10h11M11 6l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+          }
+        </button>
+      </form>
+
+      <div class="identity-note">
+        <span class="identity-note__icon" aria-hidden="true">
+          <svg viewBox="0 0 20 20" fill="none">
+            <path d="M6.5 8V6a3.5 3.5 0 1 1 7 0v2M5 8h10v9H5V8Z" stroke="currentColor" stroke-width="1.4" />
+            <circle cx="10" cy="12" r="1" fill="currentColor" />
+          </svg>
+        </span>
+        <span><strong>Identity managed by Keycloak</strong>Your credentials are never stored by this application.</span>
+      </div>
+
+      <p class="register-prompt">
+        New to DevFlow? <a routerLink="/register">Create a support account</a>
+      </p>
+    </div>
+
+    <footer>
+      <span>Protected by role-based access controls</span>
+      <span aria-hidden="true">•</span>
+      <a href="mailto:support@devflow.local">Need help?</a>
+    </footer>
+  </section>
+</main>

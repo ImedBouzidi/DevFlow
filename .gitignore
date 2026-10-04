@@ -1,0 +1,24 @@
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# Java / Maven
+**/target/
+*.log
+
+# Angular / Node
+frontend/.angular/
+/frontend/node_modules/
+frontend/dist/
+frontend/coverage/
+
+# Local environment and secrets
+.env
+**/.env
+auth-register-service/.env
+!**/.env.example
+
+# OS files
+.DS_Store
+Thumbs.db

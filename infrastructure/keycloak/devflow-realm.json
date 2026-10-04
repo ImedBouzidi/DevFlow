@@ -1,0 +1,167 @@
+{
+  "realm": "devflow",
+  "displayName": "DevFlow AI",
+  "enabled": true,
+  "sslRequired": "none",
+  "registrationAllowed": false,
+  "registrationEmailAsUsername": false,
+  "rememberMe": true,
+  "verifyEmail": false,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "resetPasswordAllowed": true,
+  "editUsernameAllowed": false,
+  "bruteForceProtected": true,
+  "accessTokenLifespan": 900,
+  "ssoSessionIdleTimeout": 1800,
+  "ssoSessionMaxLifespan": 36000,
+  "roles": {
+    "realm": [
+      {
+        "name": "ROLE_ADMIN",
+        "description": "Platform administrator"
+      },
+      {
+        "name": "ROLE_MANAGER",
+        "description": "Engineering team manager"
+      },
+      {
+        "name": "ROLE_DEVELOPER",
+        "description": "Incident investigator and resolver"
+      },
+      {
+        "name": "ROLE_SUPPORT",
+        "description": "Customer support agent"
+      }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "devflow-web",
+      "name": "DevFlow Angular Web",
+      "description": "Public OIDC client used by the Angular standalone application",
+      "enabled": true,
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "redirectUris": [
+        "http://localhost:4200/*"
+      ],
+      "webOrigins": [
+        "http://localhost:4200"
+      ],
+      "rootUrl": "http://localhost:4200",
+      "baseUrl": "/",
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "http://localhost:4200/*"
+      },
+      "fullScopeAllowed": true
+    },
+    {
+      "clientId": "devflow-auth-service",
+      "name": "DevFlow Auth Registration Service",
+      "description": "Confidential local-development client with permission to create users",
+      "enabled": true,
+      "publicClient": false,
+      "bearerOnly": false,
+      "standardFlowEnabled": false,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": true,
+      "secret": "devflow-local-change-me",
+      "fullScopeAllowed": true
+    }
+  ],
+  "users": [
+    {
+      "username": "service-account-devflow-auth-service",
+      "enabled": true,
+      "serviceAccountClientId": "devflow-auth-service",
+      "clientRoles": {
+        "realm-management": [
+          "manage-users",
+          "view-realm"
+        ]
+      }
+    },
+    {
+      "username": "admin",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "DevFlow",
+      "lastName": "Administrator",
+      "email": "admin@devflow.local",
+      "realmRoles": [
+        "ROLE_ADMIN",
+        "ROLE_MANAGER",
+        "ROLE_DEVELOPER",
+        "ROLE_SUPPORT"
+      ],
+      "credentials": [
+        {
+          "type": "password",
+          "value": "Devflow123!",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "username": "manager",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Maya",
+      "lastName": "Patel",
+      "email": "manager@devflow.local",
+      "realmRoles": [
+        "ROLE_MANAGER",
+        "ROLE_DEVELOPER"
+      ],
+      "credentials": [
+        {
+          "type": "password",
+          "value": "Devflow123!",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "username": "developer",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Alex",
+      "lastName": "Chen",
+      "email": "developer@devflow.local",
+      "realmRoles": [
+        "ROLE_DEVELOPER"
+      ],
+      "credentials": [
+        {
+          "type": "password",
+          "value": "Devflow123!",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "username": "support",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Jordan",
+      "lastName": "Lee",
+      "email": "support@devflow.local",
+      "realmRoles": [
+        "ROLE_SUPPORT"
+      ],
+      "credentials": [
+        {
+          "type": "password",
+          "value": "Devflow123!",
+          "temporary": false
+        }
+      ]
+    }
+  ]
+}

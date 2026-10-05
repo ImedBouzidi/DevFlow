@@ -19,6 +19,9 @@ frontend/coverage/
 auth-register-service/.env
 !**/.env.example
 
+# Python / AI Analysis Server
+ai-analysis-server/.venv/
+
 # OS files
 .DS_Store
 Thumbs.db

@@ -21,6 +21,7 @@ auth-register-service/.env
 
 # Python / AI Analysis Server
 ai-analysis-server/.venv/
+ai-analysis-server/test-results/
 
 # OS files
 .DS_Store

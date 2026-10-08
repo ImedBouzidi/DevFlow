@@ -36,12 +36,13 @@ pipeline {
 
         stage('Python tests') {
             steps {
-                dir('ai-analysis-server') {
-                    sh 'python3 -m venv .venv-ci'
-                    sh '.venv-ci/bin/pip install -r requirements-dev.txt'
-                    sh 'mkdir -p test-results'
-                    sh '.venv-ci/bin/python -m pytest -q --junitxml=test-results/pytest.xml'
-                }
+                sh '''
+                    docker run --rm \
+                      --volume "$WORKSPACE/ai-analysis-server:/workspace" \
+                      --workdir /workspace \
+                      python:3.11-slim \
+                      sh -ec 'python -m pip install --no-cache-dir -r requirements-dev.txt && mkdir -p test-results && python -m pytest -q --junitxml=test-results/pytest.xml'
+                '''
             }
             post {
                 always {
@@ -63,9 +64,4 @@ pipeline {
         }
     }
 
-    post {
-        always {
-            sh 'rm -rf ai-analysis-server/.venv-ci'
-        }
-    }
 }

@@ -12,6 +12,7 @@ frontend/.angular/
 /frontend/node_modules/
 frontend/dist/
 frontend/coverage/
+frontend-build.log
 
 # Local environment and secrets
 .env

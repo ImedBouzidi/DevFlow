@@ -27,9 +27,22 @@ pipeline {
 
         stage('Frontend build') {
             steps {
-                dir('frontend') {
-                    sh 'npm ci'
-                    sh 'npm run build'
+                sh(script: '''#!/bin/bash
+                    set -o pipefail
+                    docker run --rm \\
+                      --user "$(id -u):$(id -g)" \\
+                      --volume "$WORKSPACE/frontend:/workspace" \\
+                      --workdir /workspace \\
+                      --env HOME=/tmp \\
+                      --env npm_config_cache=/tmp/npm-cache \\
+                      node:22-alpine \\
+                      sh -ec 'node --version; npm --version; npm ci --loglevel verbose; npm run build' \\
+                      2>&1 | tee "$WORKSPACE/frontend-build.log"
+                ''')
+            }
+            post {
+                always {
+                    archiveArtifacts allowEmptyArchive: true, artifacts: 'frontend-build.log'
                 }
             }
         }

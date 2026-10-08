@@ -1,7 +1,9 @@
+# syntax=docker/dockerfile:1.7
 FROM maven:3.9.9-eclipse-temurin-17-alpine AS build
 WORKDIR /workspace
 COPY . .
-RUN mvn -B -pl discovery-server -am package -DskipTests
+RUN --mount=type=cache,target=/root/.m2 \
+  mvn -B -ntp -pl discovery-server -am package -DskipTests
 
 FROM eclipse-temurin:17-jre-alpine
 RUN apk add --no-cache curl \

@@ -92,10 +92,33 @@
                     }
                 </label>
                 @if (!editingUser()) {
-                <label class="user-editor__password">Password<input type="password" formControlName="password" autocomplete="new-password" minlength="12" maxlength="72" />
+                <label class="user-editor__password">Password
+                    <span class="user-editor__password-input">
+                        <input [type]="showPassword() ? 'text' : 'password'" formControlName="password"
+                            autocomplete="new-password" minlength="12" maxlength="72" />
+                        <button type="button" class="password-visibility" (click)="togglePasswordVisibility()"
+                            [attr.aria-label]="showPassword() ? 'Hide password' : 'Show password'">
+                            {{ showPassword() ? 'Hide' : 'Show' }}
+                        </button>
+                    </span>
                     <small>12-72 characters with uppercase, lowercase, number, and symbol.</small>
                     @if (userForm.controls.password.touched && userForm.controls.password.invalid) {
                     <small class="field-error">Password does not meet the required format.</small>
+                    }
+                </label>
+                <label class="user-editor__password">Confirm password
+                    <span class="user-editor__password-input">
+                        <input [type]="showConfirmPassword() ? 'text' : 'password'" formControlName="confirmPassword"
+                            autocomplete="new-password" />
+                        <button type="button" class="password-visibility" (click)="toggleConfirmPasswordVisibility()"
+                            [attr.aria-label]="showConfirmPassword() ? 'Hide confirmation' : 'Show confirmation'">
+                            {{ showConfirmPassword() ? 'Hide' : 'Show' }}
+                        </button>
+                    </span>
+                    @if (userForm.controls.confirmPassword.touched && userForm.controls.confirmPassword.invalid) {
+                    <small class="field-error">Confirm the account password.</small>
+                    } @else if (passwordsDoNotMatch()) {
+                    <small class="field-error">Passwords do not match.</small>
                     }
                 </label>
                 }

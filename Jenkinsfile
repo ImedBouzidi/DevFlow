@@ -11,6 +11,7 @@ pipeline {
         DOCKER_BUILDKIT = '1'
         COMPOSE_FILE = 'infrastructure/docker-compose.yml'
         IMAGE_TAG = "build-${BUILD_NUMBER}"
+        COMPOSE_PARALLEL_LIMIT = '1'
     }
 
     stages {
@@ -50,11 +51,18 @@ pipeline {
         stage('Python tests') {
             steps {
                 sh '''
+                    mkdir -p "$WORKSPACE/.cache/pip-ai" "$WORKSPACE/ai-analysis-server/test-results"
                     docker run --rm \
+                      --user "$(id -u):$(id -g)" \
                       --volume "$WORKSPACE/ai-analysis-server:/workspace" \
+                      --volume "$WORKSPACE/.cache/pip-ai:/pip-cache" \
                       --workdir /workspace \
+                      --env PIP_CACHE_DIR=/pip-cache \
+                      --env PIP_DEFAULT_TIMEOUT=120 \
+                      --env PIP_RETRIES=10 \
+                      --env HOME=/tmp \
                       python:3.11-slim \
-                      sh -ec 'python -m pip install --no-cache-dir -r requirements-dev.txt && mkdir -p test-results && python -m pytest -q --junitxml=test-results/pytest.xml'
+                      sh -ec 'python -m venv /tmp/venv && /tmp/venv/bin/python -m pip install -r requirements-dev.txt && /tmp/venv/bin/python -m pytest -q --junitxml=test-results/pytest.xml'
                 '''
             }
             post {
@@ -72,7 +80,7 @@ pipeline {
 
         stage('Build container images') {
             steps {
-                sh 'docker compose build --pull'
+                sh 'docker compose build --pull --progress plain'
             }
         }
     }

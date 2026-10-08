@@ -36,6 +36,8 @@ export class UserManagementComponent {
     readonly searchQuery = signal('');
     readonly errorMessage = signal('');
     readonly successMessage = signal('');
+    readonly showPassword = signal(false);
+    readonly showConfirmPassword = signal(false);
     readonly activeUsers = computed(() => this.users().filter((user) => user.enabled).length);
     readonly filteredUsers = computed(() => {
         const query = this.searchQuery().trim().toLowerCase();
@@ -55,7 +57,8 @@ export class UserManagementComponent {
         email: ['', [Validators.required, Validators.email, Validators.maxLength(254)]],
         firstName: ['', [Validators.required, Validators.maxLength(100), Validators.pattern(/\S/)]],
         lastName: ['', [Validators.required, Validators.maxLength(100), Validators.pattern(/\S/)]],
-        password: ['']
+        password: [''],
+        confirmPassword: ['']
     });
 
     constructor() {
@@ -73,7 +76,11 @@ export class UserManagementComponent {
     openCreateForm(): void {
         this.editingUser.set(null);
         this.selectedRoles.set(['ROLE_DEVELOPER']);
-        this.userForm.reset({ username: '', email: '', firstName: '', lastName: '', password: '' });
+        this.userForm.reset({
+            username: '', email: '', firstName: '', lastName: '', password: '', confirmPassword: ''
+        });
+        this.showPassword.set(false);
+        this.showConfirmPassword.set(false);
         this.userForm.controls.username.enable();
         this.userForm.controls.password.setValidators([
             Validators.required,
@@ -82,6 +89,8 @@ export class UserManagementComponent {
             Validators.pattern(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).+$/)
         ]);
         this.userForm.controls.password.updateValueAndValidity();
+        this.userForm.controls.confirmPassword.setValidators([Validators.required]);
+        this.userForm.controls.confirmPassword.updateValueAndValidity();
         this.clearFeedback();
         this.editorOpen.set(true);
     }
@@ -94,11 +103,14 @@ export class UserManagementComponent {
             email: user.email,
             firstName: user.firstName,
             lastName: user.lastName,
-            password: ''
+            password: '',
+            confirmPassword: ''
         });
         this.userForm.controls.username.disable();
         this.userForm.controls.password.clearValidators();
         this.userForm.controls.password.updateValueAndValidity();
+        this.userForm.controls.confirmPassword.clearValidators();
+        this.userForm.controls.confirmPassword.updateValueAndValidity();
         this.clearFeedback();
         this.editorOpen.set(true);
     }
@@ -121,8 +133,23 @@ export class UserManagementComponent {
         this.selectedRoles.set([role]);
     }
 
+    togglePasswordVisibility(): void {
+        this.showPassword.update((visible) => !visible);
+    }
+
+    toggleConfirmPasswordVisibility(): void {
+        this.showConfirmPassword.update((visible) => !visible);
+    }
+
+    passwordsDoNotMatch(): boolean {
+        return this.userForm.controls.confirmPassword.touched &&
+            this.userForm.controls.password.value !== this.userForm.controls.confirmPassword.value;
+    }
+
     saveUser(): void {
-        if (this.userForm.invalid || this.selectedRoles().length === 0) {
+        const passwordMismatch = !this.editingUser() &&
+            this.userForm.controls.password.value !== this.userForm.controls.confirmPassword.value;
+        if (this.userForm.invalid || this.selectedRoles().length === 0 || passwordMismatch) {
             this.userForm.markAllAsTouched();
             return;
         }

@@ -175,6 +175,28 @@
   grid-column: 1 / -1;
 }
 
+.user-editor__password-input {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.user-editor__password-input input {
+  padding-right: 4rem;
+}
+
+.password-visibility {
+  position: absolute;
+  right: 0.55rem;
+  border: 0;
+  padding: 0.25rem;
+  background: transparent;
+  color: var(--primary);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.72rem;
+}
+
 .role-picker {
   display: flex;
   flex-wrap: wrap;

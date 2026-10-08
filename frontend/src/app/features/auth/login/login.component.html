@@ -61,36 +61,47 @@
       </div>
 
       @if (errorMessage()) {
-        <div class="form-alert form-alert--error" role="alert">
-          <span aria-hidden="true">!</span>
-          <span>{{ errorMessage() }}</span>
-        </div>
+      <div class="form-alert form-alert--error" role="alert">
+        <span aria-hidden="true">!</span>
+        <span>{{ errorMessage() }}</span>
+      </div>
       }
 
       <form [formGroup]="loginForm" (ngSubmit)="signIn()" novalidate>
         <div class="field">
-          <label for="username">Work email or username</label>
-          <input
-            id="username"
-            type="text"
-            formControlName="username"
-            autocomplete="username"
-            placeholder="you@company.com"
-          />
-          @if (loginForm.controls.username.touched && loginForm.controls.username.invalid) {
-            <span class="field-error">Enter your work email or username.</span>
+          <label for="email">Username or work email</label>
+          <input id="email" type="text" formControlName="email" autocomplete="username"
+            placeholder="admin@devflow.local or username" />
+          @if (loginForm.controls.email.touched && loginForm.controls.email.invalid) {
+          <span class="field-error">Please enter your username or email address.</span>
+          }
+        </div>
+
+        <div class="field">
+          <label for="password">Password</label>
+          <div class="password-input-wrapper">
+            <input id="password" [type]="showPassword() ? 'text' : 'password'" formControlName="password"
+              autocomplete="current-password" placeholder="••••••••••••" />
+            <button type="button" class="toggle-password-btn" (click)="toggleShowPassword()"
+              [attr.aria-label]="showPassword() ? 'Hide password' : 'Show password'">
+              {{ showPassword() ? 'Hide' : 'Show' }}
+            </button>
+          </div>
+          @if (loginForm.controls.password.touched && loginForm.controls.password.invalid) {
+          <span class="field-error">Please enter your password.</span>
           }
         </div>
 
         <button class="button button--block sign-in-button" type="submit" [disabled]="loading()">
           @if (loading()) {
-            <span class="spinner" aria-hidden="true"></span>
-            Connecting…
+          <span class="spinner" aria-hidden="true"></span>
+          Connecting…
           } @else {
-            Continue with secure sign-in
-            <svg viewBox="0 0 20 20" aria-hidden="true">
-              <path d="M4 10h11M11 6l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" />
-            </svg>
+          Sign in to DevFlow
+          <svg viewBox="0 0 20 20" aria-hidden="true">
+            <path d="M4 10h11M11 6l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"
+              stroke-linejoin="round" />
+          </svg>
           }
         </button>
       </form>
@@ -105,9 +116,6 @@
         <span><strong>Identity managed by Keycloak</strong>Your credentials are never stored by this application.</span>
       </div>
 
-      <p class="register-prompt">
-        New to DevFlow? <a routerLink="/register">Create a support account</a>
-      </p>
     </div>
 
     <footer>

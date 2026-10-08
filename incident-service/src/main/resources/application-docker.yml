@@ -1,0 +1,24 @@
+# ─── Docker profile (Docker Compose) ─────────────────────────────────────────
+# Activate: -Dspring.profiles.active=docker
+# Service names must match those declared in docker-compose.yml
+# ─────────────────────────────────────────────────────────────────────────────
+
+spring:
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://postgres:5432/devflow}
+    username: ${DB_USERNAME:devflow}
+    password: ${DB_PASSWORD:devflow}
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${KEYCLOAK_ISSUER_URI:http://keycloak:8080/realms/devflow}
+
+app:
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:4200}
+
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_SERVICE_URL:http://discovery-server:8761/eureka/}

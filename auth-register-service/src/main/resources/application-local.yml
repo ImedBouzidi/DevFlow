@@ -1,0 +1,27 @@
+# ─── Local profile (IntelliJ / Maven CLI) ────────────────────────────────────
+# Activate: -Dspring.profiles.active=local
+# Base defaults are configured in application.yml.
+# ─────────────────────────────────────────────────────────────────────────────
+
+spring:
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/devflow_auth}
+    username: ${DB_USERNAME:imed}
+    password: ${DB_PASSWORD:admin}
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:9091/realms/devflow}
+
+keycloak:
+  admin-base-url: ${KEYCLOAK_ADMIN_BASE_URL:http://localhost:9091}
+
+app:
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:4200}
+
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_SERVICE_URL:http://localhost:8761/eureka/}

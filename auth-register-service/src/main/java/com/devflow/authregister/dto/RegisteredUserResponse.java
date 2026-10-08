@@ -2,6 +2,7 @@ package com.devflow.authregister.dto;
 
 import java.time.Instant;
 import java.util.UUID;
+import java.util.List;
 
 public record RegisteredUserResponse(
         UUID id,
@@ -11,5 +12,6 @@ public record RegisteredUserResponse(
         String lastName,
         String role,
         boolean enabled,
-        Instant createdAt) {
+        Instant createdAt,
+        List<String> roles) {
 }

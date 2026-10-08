@@ -4,8 +4,11 @@ import java.net.URI;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import com.devflow.authregister.config.KeycloakProperties;
+import com.devflow.authregister.exceptions.InvalidCurrentPasswordException;
 import com.devflow.authregister.exceptions.IdentityProviderException;
 import com.devflow.authregister.exceptions.RegistrationConflictException;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -14,6 +17,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.HttpClientErrorException;
@@ -25,11 +29,16 @@ public class KeycloakAdminClient {
 
     private final KeycloakProperties properties;
     private final RestClient restClient;
+    private final String webClientId;
     private volatile CachedToken cachedToken;
 
-    public KeycloakAdminClient(RestClient.Builder restClientBuilder, KeycloakProperties properties) {
+    public KeycloakAdminClient(
+            RestClient.Builder restClientBuilder,
+            KeycloakProperties properties,
+            @Value("${keycloak.web-client-id:devflow-web}") String webClientId) {
         this.properties = properties;
         this.restClient = restClientBuilder.baseUrl(properties.adminBaseUrl()).build();
+        this.webClientId = webClientId;
     }
 
     public String createUser(
@@ -45,8 +54,8 @@ public class KeycloakAdminClient {
                 lastName,
                 true,
                 false,
-                List.of(new KeycloakCredential("password", password, true)),
-                List.of("UPDATE_PASSWORD"));
+                List.of(new KeycloakCredential("password", password, false)),
+                List.of());
 
         try {
             ResponseEntity<Void> response = restClient.post()
@@ -66,7 +75,7 @@ public class KeycloakAdminClient {
                 }
             }
 
-            return findUserId(username);
+            return findUserIdByUsername(username);
         } catch (HttpClientErrorException exception) {
             if (exception.getStatusCode().value() == HttpStatus.CONFLICT.value()) {
                 throw new RegistrationConflictException("An account with this username or email already exists");
@@ -77,7 +86,7 @@ public class KeycloakAdminClient {
         }
     }
 
-    private String findUserId(String username) {
+    public String findUserIdByUsername(String username) {
         try {
             KeycloakUserSummary[] users = restClient.get()
                     .uri(uriBuilder -> uriBuilder
@@ -113,6 +122,114 @@ public class KeycloakAdminClient {
                     .toBodilessEntity();
         } catch (RestClientResponseException exception) {
             throw new IdentityProviderException("Keycloak could not assign role '" + roleName + "'", exception);
+        }
+    }
+
+    public void setRoles(String keycloakUserId, Set<String> roleNames) {
+        try {
+            KeycloakRoleMapping[] currentRoles = restClient.get()
+                    .uri("/admin/realms/{realm}/users/{userId}/role-mappings/realm", properties.realm(), keycloakUserId)
+                    .headers(this::withBearerToken)
+                    .retrieve()
+                    .body(KeycloakRoleMapping[].class);
+            Set<String> managedRoles = Set.of("ROLE_ADMIN", "ROLE_MANAGER", "ROLE_DEVELOPER", "ROLE_SUPPORT");
+            List<KeycloakRoleMapping> removals = currentRoles == null ? List.of()
+                    : java.util.Arrays.stream(currentRoles)
+                            .filter(role -> managedRoles.contains(role.name()) && !roleNames.contains(role.name()))
+                            .toList();
+            if (!removals.isEmpty()) {
+                restClient.method(org.springframework.http.HttpMethod.DELETE)
+                        .uri("/admin/realms/{realm}/users/{userId}/role-mappings/realm", properties.realm(), keycloakUserId)
+                        .headers(this::withBearerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .body(removals)
+                        .retrieve()
+                        .toBodilessEntity();
+            }
+            Set<String> currentNames = currentRoles == null ? Set.of()
+                    : java.util.Arrays.stream(currentRoles).map(KeycloakRoleMapping::name).collect(Collectors.toSet());
+            List<KeycloakRole> additions = roleNames.stream()
+                    .filter(roleName -> !currentNames.contains(roleName))
+                    .map(this::findRole)
+                    .toList();
+            if (!additions.isEmpty()) {
+                restClient.post()
+                        .uri("/admin/realms/{realm}/users/{userId}/role-mappings/realm", properties.realm(), keycloakUserId)
+                        .headers(this::withBearerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .body(additions)
+                        .retrieve()
+                        .toBodilessEntity();
+            }
+        } catch (RestClientResponseException exception) {
+            throw new IdentityProviderException("Keycloak could not update the user's roles", exception);
+        }
+    }
+
+    public void updateUser(
+            String keycloakUserId,
+            String username,
+            String email,
+            String firstName,
+            String lastName,
+            boolean enabled) {
+        updateUser(keycloakUserId, username, email, firstName, lastName, enabled, true);
+        }
+
+        public void updateUser(
+            String keycloakUserId,
+            String username,
+            String email,
+            String firstName,
+            String lastName,
+            boolean enabled,
+            boolean emailVerified) {
+        try {
+            restClient.put()
+                    .uri("/admin/realms/{realm}/users/{userId}", properties.realm(), keycloakUserId)
+                    .headers(this::withBearerToken)
+                    .contentType(MediaType.APPLICATION_JSON)
+                        .body(new KeycloakUpdateUserRequest(
+                            username, email, firstName, lastName, enabled, emailVerified))
+                    .retrieve()
+                    .toBodilessEntity();
+        } catch (RestClientResponseException exception) {
+            throw new IdentityProviderException("Keycloak could not update the user", exception);
+        }
+    }
+
+    public void verifyPassword(String username, String password) {
+        MultiValueMap<String, String> form = new LinkedMultiValueMap<>();
+        form.add("grant_type", "password");
+        form.add("client_id", webClientId);
+        form.add("username", username);
+        form.add("password", password);
+
+        try {
+            restClient.post()
+                    .uri("/realms/{realm}/protocol/openid-connect/token", properties.realm())
+                    .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                    .body(form)
+                    .retrieve()
+                    .body(TokenResponse.class);
+        } catch (HttpClientErrorException.BadRequest exception) {
+            throw new InvalidCurrentPasswordException();
+        } catch (RestClientResponseException exception) {
+            throw new IdentityProviderException("Could not verify the current password", exception);
+        }
+    }
+
+    public void updatePassword(String keycloakUserId, String password) {
+        try {
+            restClient.put()
+                    .uri("/admin/realms/{realm}/users/{userId}/reset-password", properties.realm(), keycloakUserId)
+                    .headers(this::withBearerToken)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(new KeycloakCredential("password", password, false))
+                    .retrieve()
+                    .toBodilessEntity();
+        } catch (RestClientResponseException exception) {
+            throw new IdentityProviderException("Keycloak could not update the password", exception);
         }
     }
 
@@ -194,6 +311,18 @@ public class KeycloakAdminClient {
 
     private record KeycloakUserSummary(String id, String username) {
     }
+
+        private record KeycloakRoleMapping(String id, String name) {
+        }
+
+        private record KeycloakUpdateUserRequest(
+            String username,
+            String email,
+            String firstName,
+            String lastName,
+            boolean enabled,
+            boolean emailVerified) {
+        }
 
     private record KeycloakRole(String id, String name) {
     }

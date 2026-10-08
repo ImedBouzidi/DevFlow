@@ -1,5 +1,5 @@
 server:
-  port: 8080
+  port: 9090
   shutdown: graceful
 
 spring:
@@ -23,7 +23,7 @@ spring:
     oauth2:
       resourceserver:
         jwt:
-          issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:8081/realms/devflow}
+          issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:9091/realms/devflow}
 
 app:
   cors:

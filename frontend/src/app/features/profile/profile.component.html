@@ -1,0 +1,100 @@
+<div class="profile-page">
+  <header class="page-heading">
+    <div>
+      <span class="eyebrow">Account</span>
+      <h1>Profile &amp; Security</h1>
+      <p>Update your contact details and sign-in password.</p>
+    </div>
+  </header>
+
+  @if (loading()) {
+  <section class="page-card profile-state" role="status">Loading account details...</section>
+  } @else {
+  <div class="profile-sections">
+    <section class="page-card profile-section" aria-labelledby="profile-details-title">
+      <div class="profile-section__heading">
+        <div>
+          <h2 id="profile-details-title">Personal details</h2>
+          <p>Username: <strong>{{ profile()?.username }}</strong></p>
+        </div>
+      </div>
+
+      @if (profileError()) {
+      <div class="form-alert form-alert--error" role="alert">{{ profileError() }}</div>
+      }
+      @if (profileSuccess()) {
+      <div class="form-alert form-alert--success" role="status">{{ profileSuccess() }}</div>
+      }
+
+      <form [formGroup]="profileForm" (ngSubmit)="saveProfile()" novalidate>
+        <label class="profile-field" for="profile-email">Email
+          <input id="profile-email" type="email" formControlName="email" autocomplete="email" />
+          @if (profileForm.controls.email.touched && profileForm.controls.email.invalid) {
+          <small class="field-error">Enter a valid email address.</small>
+          }
+        </label>
+        <label class="profile-field" for="profile-first-name">First name
+          <input id="profile-first-name" type="text" formControlName="firstName" autocomplete="given-name" />
+          @if (profileForm.controls.firstName.touched && profileForm.controls.firstName.invalid) {
+          <small class="field-error">First name is required.</small>
+          }
+        </label>
+        <label class="profile-field" for="profile-last-name">Last name
+          <input id="profile-last-name" type="text" formControlName="lastName" autocomplete="family-name" />
+          @if (profileForm.controls.lastName.touched && profileForm.controls.lastName.invalid) {
+          <small class="field-error">Last name is required.</small>
+          }
+        </label>
+        <div class="profile-actions">
+          <button class="button" type="submit" [disabled]="savingProfile()">
+            {{ savingProfile() ? 'Saving...' : 'Save profile' }}
+          </button>
+        </div>
+      </form>
+    </section>
+
+    <section class="page-card profile-section" aria-labelledby="password-title">
+      <div class="profile-section__heading">
+        <div>
+          <h2 id="password-title">Change password</h2>
+          <p>Confirm your current password before setting a new one.</p>
+        </div>
+      </div>
+
+      @if (passwordError()) {
+      <div class="form-alert form-alert--error" role="alert">{{ passwordError() }}</div>
+      }
+      @if (passwordSuccess()) {
+      <div class="form-alert form-alert--success" role="status">{{ passwordSuccess() }}</div>
+      }
+
+      <form [formGroup]="passwordForm" (ngSubmit)="changePassword()" novalidate>
+        <label class="profile-field" for="current-password">Current password
+          <input id="current-password" type="password" formControlName="currentPassword" autocomplete="current-password" />
+          @if (passwordForm.controls.currentPassword.touched && passwordForm.controls.currentPassword.invalid) {
+          <small class="field-error">Enter your current password.</small>
+          }
+        </label>
+        <label class="profile-field" for="new-password">New password
+          <input id="new-password" type="password" formControlName="newPassword" autocomplete="new-password" />
+          <small>12-72 characters with uppercase, lowercase, number, and symbol.</small>
+          @if (passwordForm.controls.newPassword.touched && passwordForm.controls.newPassword.invalid) {
+          <small class="field-error">The new password does not meet the required format.</small>
+          }
+        </label>
+        <label class="profile-field" for="confirm-password">Confirm new password
+          <input id="confirm-password" type="password" formControlName="confirmPassword" autocomplete="new-password" />
+          @if (passwordsDoNotMatch()) {
+          <small class="field-error">The passwords do not match.</small>
+          }
+        </label>
+        <div class="profile-actions">
+          <button class="button" type="submit" [disabled]="changingPassword()">
+            {{ changingPassword() ? 'Updating...' : 'Change password' }}
+          </button>
+        </div>
+      </form>
+    </section>
+  </div>
+  }
+</div>

@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, HostListener, inject, signal } from '@angular/core';
-import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 
 import { AuthService } from '../../core/auth/auth.service';
 
@@ -12,11 +12,14 @@ import { AuthService } from '../../core/auth/auth.service';
 })
 export class AppShellComponent {
   readonly authService = inject(AuthService);
+  private readonly router = inject(Router);
   readonly mobileMenuOpen = signal(false);
   readonly profileMenuOpen = signal(false);
 
   readonly primaryRole = computed(() => {
-    const role = this.authService.roles()[0] || 'ROLE_SUPPORT';
+    const roles = this.authService.roles();
+    const role = ['ROLE_ADMIN', 'ROLE_MANAGER', 'ROLE_DEVELOPER', 'ROLE_SUPPORT']
+      .find((candidate) => roles.includes(candidate)) || 'ROLE_SUPPORT';
     return role.replace('ROLE_', '').toLowerCase();
   });
 
@@ -32,5 +35,11 @@ export class AppShellComponent {
 
   toggleProfileMenu(): void {
     this.profileMenuOpen.update((open) => !open);
+  }
+
+  async signOut(): Promise<void> {
+    this.profileMenuOpen.set(false);
+    await this.authService.logout();
+    await this.router.navigateByUrl('/login');
   }
 }

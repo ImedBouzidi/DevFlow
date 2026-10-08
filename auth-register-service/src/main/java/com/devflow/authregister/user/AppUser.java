@@ -1,6 +1,8 @@
 package com.devflow.authregister.user;
 
 import java.time.Instant;
+import java.util.LinkedHashSet;
+import java.util.Set;
 import java.util.UUID;
 
 import jakarta.persistence.Column;
@@ -14,6 +16,9 @@ import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import jakarta.persistence.EntityListeners;
+import jakarta.persistence.CollectionTable;
+import jakarta.persistence.ElementCollection;
+import jakarta.persistence.JoinColumn;
 
 @Entity
 @Table(name = "app_users")
@@ -41,6 +46,12 @@ public class AppUser {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 32)
     private UserRole role;
+
+    @ElementCollection
+    @CollectionTable(name = "app_user_roles", joinColumns = @JoinColumn(name = "user_id"))
+    @Enumerated(EnumType.STRING)
+    @Column(name = "role", nullable = false, length = 32)
+    private Set<UserRole> roles = new LinkedHashSet<>();
 
     @Column(nullable = false)
     private boolean enabled;
@@ -72,6 +83,7 @@ public class AppUser {
         this.firstName = firstName;
         this.lastName = lastName;
         this.role = role;
+        this.roles.add(role);
         this.enabled = enabled;
     }
 
@@ -91,6 +103,20 @@ public class AppUser {
                 lastName,
                 role,
                 true);
+    }
+
+    public static AppUser create(
+            String keycloakUserId,
+            String username,
+            String email,
+            String firstName,
+            String lastName,
+            Set<UserRole> roles) {
+        UserRole primaryRole = roles.stream().sorted().findFirst().orElseThrow();
+        AppUser user = create(keycloakUserId, username, email, firstName, lastName, primaryRole);
+        user.roles.clear();
+        user.roles.addAll(roles);
+        return user;
     }
 
     public UUID getId() {
@@ -119,6 +145,26 @@ public class AppUser {
 
     public UserRole getRole() {
         return role;
+    }
+
+    public Set<UserRole> getRoles() {
+        return Set.copyOf(roles);
+    }
+
+    public void updateProfile(String email, String firstName, String lastName, Set<UserRole> roles, boolean enabled) {
+        this.email = email;
+        this.firstName = firstName;
+        this.lastName = lastName;
+        this.roles.clear();
+        this.roles.addAll(roles);
+        this.role = roles.iterator().next();
+        this.enabled = enabled;
+    }
+
+    public void updateContactInfo(String email, String firstName, String lastName) {
+        this.email = email;
+        this.firstName = firstName;
+        this.lastName = lastName;
     }
 
     public boolean isEnabled() {

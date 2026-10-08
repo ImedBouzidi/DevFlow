@@ -44,7 +44,7 @@
       "publicClient": true,
       "standardFlowEnabled": true,
       "implicitFlowEnabled": false,
-      "directAccessGrantsEnabled": false,
+      "directAccessGrantsEnabled": true,
       "serviceAccountsEnabled": false,
       "redirectUris": [
         "http://localhost:4200/*"
@@ -71,7 +71,7 @@
       "implicitFlowEnabled": false,
       "directAccessGrantsEnabled": false,
       "serviceAccountsEnabled": true,
-      "secret": "devflow-local-change-me",
+      "secret": "4KPGLJd8adlHLwVWckUSYp3voTeDOF8S",
       "fullScopeAllowed": true
     }
   ],

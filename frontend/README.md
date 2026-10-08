@@ -12,7 +12,7 @@ npm install
 npm start
 ```
 
-The development server runs on `http://localhost:4200` and proxies `/api` requests to `http://localhost:8080` through `proxy.conf.json`.
+The development server runs on `http://localhost:4200` and proxies `/api` requests to the API gateway at `http://localhost:9090` through `proxy.conf.json`.
 
 ## Commands
 

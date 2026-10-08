@@ -1,0 +1,108 @@
+<div class="admin-dashboard-page">
+    <header class="page-heading">
+        <div>
+            <span class="eyebrow eyebrow--admin">System Administration</span>
+            <h1>Admin Dashboard</h1>
+            <p>Monitor platform microservices, Keycloak IAM, and security policies.</p>
+        </div>
+        <div class="heading-actions">
+            <span class="admin-badge">Admin Access Verified</span>
+            <a class="button" routerLink="/incidents">
+                <svg viewBox="0 0 18 18" aria-hidden="true">
+                    <path d="M9 3v12M3 9h12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+                </svg>
+                View Incidents
+            </a>
+        </div>
+    </header>
+
+    <section class="admin-metrics-grid" aria-label="System key performance indicators">
+        @for (metric of adminMetrics; track metric.label) {
+        <article class="metric-card page-card">
+            <div class="metric-card__top">
+                <span class="metric-icon metric-icon--blue">
+                    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <rect x="3" y="3" width="14" height="14" rx="2" />
+                        <path d="M7 10h6M10 7v6" stroke-linecap="round" />
+                    </svg>
+                </span>
+                <span class="metric-status-dot"></span>
+            </div>
+            <span class="metric-card__label">{{ metric.label }}</span>
+            <strong class="metric-card__value">{{ metric.value }}</strong>
+            <span class="metric-card__detail">{{ metric.detail }}</span>
+        </article>
+        }
+    </section>
+
+    <div class="admin-grid">
+        <div class="admin-main">
+            <section class="page-card">
+                <div class="card-heading">
+                    <div>
+                        <h2>Microservice Architecture Status</h2>
+                        <p>Real-time health and registration of registered Spring Cloud & IAM services</p>
+                    </div>
+                    <span class="status-pill status-pill--online">All Systems Operational</span>
+                </div>
+
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Service Name</th>
+                                <th>Port</th>
+                                <th>Status</th>
+                                <th>Uptime</th>
+                                <th>Latency</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @for (svc of services; track svc.name) {
+                            <tr>
+                                <td><strong>{{ svc.name }}</strong></td>
+                                <td><code>:{{ svc.port }}</code></td>
+                                <td>
+                                    <span class="status-pill status-pill--online">{{ svc.status }}</span>
+                                </td>
+                                <td>{{ svc.uptime }}</td>
+                                <td>{{ svc.latency }}</td>
+                            </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+        </div>
+
+        <aside class="admin-sidebar" aria-label="Admin quick actions">
+            <article class="page-card admin-quick-card">
+                <h3>Admin Quick Actions</h3>
+                <div class="action-buttons">
+                    <button class="button button--block" type="button">Manage Keycloak Realm</button>
+                    <button class="button button--block button--secondary" type="button">Trigger Security Audit</button>
+                    <button class="button button--block button--secondary" type="button">Clear Redis Cache</button>
+                </div>
+            </article>
+
+            <article class="page-card audit-card">
+                <h3>Audit Log Stream</h3>
+                <ul class="audit-list">
+                    <li>
+                        <span class="audit-time">19:42</span>
+                        <span>Admin session initialized for {{ authService.displayName() }}</span>
+                    </li>
+                    <li>
+                        <span class="audit-time">19:30</span>
+                        <span>OAuth2 JWT issuer validation succeeded</span>
+                    </li>
+                    <li>
+                        <span class="audit-time">19:15</span>
+                        <span>Auth Register Service health probe: OK</span>
+                    </li>
+                </ul>
+            </article>
+        </aside>
+    </div>
+</div>

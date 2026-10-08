@@ -3,7 +3,7 @@
 <div class="app-frame">
   <aside class="sidebar" [class.sidebar--open]="mobileMenuOpen()" aria-label="Primary navigation">
     <div class="sidebar__header">
-      <a class="brand-wordmark" routerLink="/dashboard" (click)="closeMobileMenu()" aria-label="DevFlow AI dashboard">
+      <a class="brand-wordmark" [routerLink]="authService.dashboardPath()" (click)="closeMobileMenu()" aria-label="DevFlow AI dashboard">
         <span class="brand-mark" aria-hidden="true">
           <svg viewBox="0 0 24 24" fill="none">
             <path d="M5 7.5 12 3l7 4.5v9L12 21l-7-4.5v-9Z" stroke="currentColor" stroke-width="1.7" />
@@ -13,7 +13,8 @@
         </span>
         <strong>DevFlow <span>AI</span></strong>
       </a>
-      <button class="sidebar__close icon-button" type="button" (click)="closeMobileMenu()" aria-label="Close navigation">
+      <button class="sidebar__close icon-button" type="button" (click)="closeMobileMenu()"
+        aria-label="Close navigation">
         <svg viewBox="0 0 20 20" aria-hidden="true">
           <path d="m5 5 10 10M15 5 5 15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
         </svg>
@@ -24,17 +25,30 @@
 
     <nav class="nav" aria-label="Workspace">
       <span class="nav__section">Monitor</span>
-      <a
-        routerLink="/dashboard"
-        routerLinkActive="active"
-        [routerLinkActiveOptions]="{ exact: true }"
-        (click)="closeMobileMenu()"
-      >
+      <a [routerLink]="authService.dashboardPath()" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }"
+        (click)="closeMobileMenu()">
         <svg viewBox="0 0 22 22" aria-hidden="true">
-          <path d="M4 12 11 5l7 7v7h-5v-5H9v5H4v-7Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" />
+          <path d="M4 12 11 5l7 7v7h-5v-5H9v5H4v-7Z" fill="none" stroke="currentColor" stroke-width="1.6"
+            stroke-linejoin="round" />
         </svg>
         <span>Dashboard</span>
       </a>
+      @if (authService.hasAnyRole(['ROLE_ADMIN'])) {
+      <a routerLink="/admin-dashboard" routerLinkActive="active" (click)="closeMobileMenu()">
+        <svg viewBox="0 0 22 22" aria-hidden="true">
+          <rect x="3" y="3" width="16" height="16" rx="2" fill="none" stroke="currentColor" stroke-width="1.6" />
+          <path d="M7 11h8M11 7v8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
+        </svg>
+        <span>Admin Dashboard</span>
+      </a>
+      <a routerLink="/user-management" routerLinkActive="active" (click)="closeMobileMenu()">
+        <svg viewBox="0 0 22 22" aria-hidden="true">
+          <circle cx="8" cy="7" r="3" fill="none" stroke="currentColor" stroke-width="1.5" />
+          <path d="M2.5 18v-1.5A4.5 4.5 0 0 1 7 12h2a4.5 4.5 0 0 1 4.5 4.5V18h-11ZM15 5.5a3 3 0 0 1 0 5.8M16 13h.5a3 3 0 0 1 3 3v2H16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+        </svg>
+        <span>User Management</span>
+      </a>
+      }
       <a routerLink="/incidents" routerLinkActive="active" (click)="closeMobileMenu()">
         <svg viewBox="0 0 22 22" aria-hidden="true">
           <path d="M11 3 20 18H2L11 3Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" />
@@ -45,7 +59,8 @@
       </a>
       <button type="button" disabled title="Coming in the monitoring slice">
         <svg viewBox="0 0 22 22" aria-hidden="true">
-          <path d="M4 17V9m5 8V5m5 12v-6m5 6V3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
+          <path d="M4 17V9m5 8V5m5 12v-6m5 6V3" fill="none" stroke="currentColor" stroke-width="1.6"
+            stroke-linecap="round" />
         </svg>
         <span>Services</span>
         <small>Soon</small>
@@ -54,15 +69,20 @@
       <span class="nav__section nav__section--spaced">Intelligence</span>
       <button type="button" disabled title="Knowledge base is planned for the AI slice">
         <svg viewBox="0 0 22 22" aria-hidden="true">
-          <path d="M4 4.5h6.2A2 2 0 0 1 12 6.3v11a2 2 0 0 0-2-1.8H4v-11Zm14 0h-3.8a2 2 0 0 0-2 1.8v11a2 2 0 0 1 2-1.8H18v-11Z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" />
+          <path
+            d="M4 4.5h6.2A2 2 0 0 1 12 6.3v11a2 2 0 0 0-2-1.8H4v-11Zm14 0h-3.8a2 2 0 0 0-2 1.8v11a2 2 0 0 1 2-1.8H18v-11Z"
+            fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" />
         </svg>
         <span>Knowledge base</span>
         <small>Soon</small>
       </button>
       <button type="button" disabled title="AI assistant is planned for the AI slice">
         <svg viewBox="0 0 22 22" aria-hidden="true">
-          <path d="m11 2 1.4 4.2L16.5 8l-4.1 1.8L11 14l-1.4-4.2L5.5 8l4.1-1.8L11 2Z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" />
-          <path d="m17 13 .7 2.3L20 16l-2.3.7L17 19l-.7-2.3L14 16l2.3-.7L17 13ZM5 13l.6 1.9 1.9.6-1.9.6L5 18l-.6-1.9-1.9-.6 1.9-.6L5 13Z" fill="currentColor" />
+          <path d="m11 2 1.4 4.2L16.5 8l-4.1 1.8L11 14l-1.4-4.2L5.5 8l4.1-1.8L11 2Z" fill="none" stroke="currentColor"
+            stroke-width="1.5" stroke-linejoin="round" />
+          <path
+            d="m17 13 .7 2.3L20 16l-2.3.7L17 19l-.7-2.3L14 16l2.3-.7L17 13ZM5 13l.6 1.9 1.9.6-1.9.6L5 18l-.6-1.9-1.9-.6 1.9-.6L5 13Z"
+            fill="currentColor" />
         </svg>
         <span>AI assistant</span>
         <small>Beta</small>
@@ -78,15 +98,17 @@
   </aside>
 
   @if (mobileMenuOpen()) {
-    <button class="sidebar-backdrop" type="button" (click)="closeMobileMenu()" aria-label="Close navigation"></button>
+  <button class="sidebar-backdrop" type="button" (click)="closeMobileMenu()" aria-label="Close navigation"></button>
   }
 
   <div class="content-frame">
     <header class="topbar">
       <div class="topbar__left">
-        <button class="menu-button icon-button" type="button" (click)="mobileMenuOpen.set(true)" aria-label="Open navigation">
+        <button class="menu-button icon-button" type="button" (click)="mobileMenuOpen.set(true)"
+          aria-label="Open navigation">
           <svg viewBox="0 0 20 20" aria-hidden="true">
-            <path d="M3 5h14M3 10h14M3 15h14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
+            <path d="M3 5h14M3 10h14M3 15h14" fill="none" stroke="currentColor" stroke-width="1.6"
+              stroke-linecap="round" />
           </svg>
         </button>
         <div class="global-search">
@@ -104,33 +126,37 @@
         <span class="role-chip">{{ primaryRole() }}</span>
         <button class="notification-button icon-button" type="button" aria-label="Notifications, 3 unread">
           <svg viewBox="0 0 20 20" aria-hidden="true">
-            <path d="M5.5 8a4.5 4.5 0 0 1 9 0c0 5 2 5 2 6h-13c0-1 2-1 2-6Z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" />
+            <path d="M5.5 8a4.5 4.5 0 0 1 9 0c0 5 2 5 2 6h-13c0-1 2-1 2-6Z" fill="none" stroke="currentColor"
+              stroke-width="1.4" stroke-linejoin="round" />
             <path d="M8.5 16.5h3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" />
           </svg>
           <span>3</span>
         </button>
 
         <div class="profile-menu">
-          <button class="profile-trigger" type="button" (click)="toggleProfileMenu()" [attr.aria-expanded]="profileMenuOpen()">
+          <button class="profile-trigger" type="button" (click)="toggleProfileMenu()"
+            [attr.aria-expanded]="profileMenuOpen()">
             <span class="avatar">{{ authService.initials() }}</span>
             <span class="profile-trigger__copy">
-              <strong>{{ authService.displayName() }}</strong>
+              <strong>{{ authService.username() || authService.displayName() }}</strong>
               <small>{{ authService.email() || 'DevFlow account' }}</small>
             </span>
             <svg viewBox="0 0 16 16" aria-hidden="true">
-              <path d="m4 6 4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />
+              <path d="m4 6 4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"
+                stroke-linejoin="round" />
             </svg>
           </button>
 
           @if (profileMenuOpen()) {
-            <div class="profile-dropdown page-card">
-              <div class="profile-dropdown__identity">
-                <strong>{{ authService.displayName() }}</strong>
-                <span>{{ authService.email() }}</span>
-              </div>
-              <button type="button" disabled>Account settings <small>Soon</small></button>
-              <button type="button" (click)="authService.logout()">Sign out</button>
+          <div class="profile-dropdown page-card">
+            <div class="profile-dropdown__identity">
+              <strong>{{ authService.displayName() }}</strong>
+              <span class="profile-dropdown__username">{{ authService.username() }}</span>
+              <span>{{ authService.email() }}</span>
             </div>
+            <a class="profile-dropdown__link" routerLink="/profile" (click)="profileMenuOpen.set(false)">Profile &amp; security</a>
+            <button type="button" (click)="signOut()">Sign out</button>
+          </div>
           }
         </div>
       </div>

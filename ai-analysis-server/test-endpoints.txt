@@ -1,0 +1,90 @@
+AI Analysis Server - endpoint test requests
+============================================
+
+Start the server first (default base URL http://localhost:5000):
+
+    python wsgi.py
+
+Then run the commands below with curl.
+
+------------------------------------------------------------------
+1. Liveness probe  ->  200 {"status":"UP","service":"ai-analysis-server"}
+------------------------------------------------------------------
+curl -i http://localhost:5000/health
+
+------------------------------------------------------------------
+2. Readiness probe ->  200 when all model artifacts load, else 503
+------------------------------------------------------------------
+curl -i http://localhost:5000/ready
+
+------------------------------------------------------------------
+3. Incident analysis (happy path) -> 200 advisory prediction
+   POST /api/v1/predictions/incident
+   Expected shape:
+   {
+     "severity": {"value": "MEDIUM", "confidence": 0.71},
+     "category": {"value": "SECURITY", "confidence": 0.83},
+     "resolution_time_hours": 2.5
+   }
+------------------------------------------------------------------
+curl -i -X POST http://localhost:5000/api/v1/predictions/incident \
+  -H "Content-Type: application/json" \
+  -d '{
+    "title": "Suspicious authentication failures",
+    "description": "Monitoring detected INVALID_TOKEN on auth-service...",
+    "service": "auth-service",
+    "environment": "production",
+    "origin": "MONITORING",
+    "initial_context": {
+      "error_code": "INVALID_TOKEN",
+      "http_status": 504,
+      "cpu_percent": 66.7,
+      "memory_percent": 62.1,
+      "latency_ms": 1416,
+      "error_rate_percent": 1.43,
+      "affected_users": 437,
+      "is_business_hours": true,
+      "is_weekend": true
+    }
+  }'
+
+------------------------------------------------------------------
+4. Incident analysis without telemetry (initial_context optional)
+------------------------------------------------------------------
+curl -i -X POST http://localhost:5000/api/v1/predictions/incident \
+  -H "Content-Type: application/json" \
+  -d '{
+    "title": "Checkout latency spike",
+    "description": "Users report slow checkout response times.",
+    "service": "checkout-service",
+    "environment": "staging",
+    "origin": "USER_REPORT"
+  }'
+
+------------------------------------------------------------------
+5. Validation error (missing required fields) -> RFC 9457 problem detail
+------------------------------------------------------------------
+curl -i -X POST http://localhost:5000/api/v1/predictions/incident \
+  -H "Content-Type: application/json" \
+  -d '{"title": "Only a title"}'
+
+------------------------------------------------------------------
+6. Validation error (invalid JSON body)
+------------------------------------------------------------------
+curl -i -X POST http://localhost:5000/api/v1/predictions/incident \
+  -H "Content-Type: application/json" \
+  -d 'this is not json'
+
+------------------------------------------------------------------
+7. Validation error (initial_context is not an object)
+------------------------------------------------------------------
+curl -i -X POST http://localhost:5000/api/v1/predictions/incident \
+  -H "Content-Type: application/json" \
+  -d '{
+    "title": "Bad context",
+    "description": "initial_context must be an object.",
+    "service": "api-gateway",
+    "environment": "production",
+    "origin": "MONITORING",
+    "initial_context": "not-an-object"
+  }'

@@ -1,3 +1,10 @@
+# ─── Common / shared configuration ───────────────────────────────────────────
+# Profile-specific overrides live in:
+#   application-local.yml  (run locally with Maven / IDE)
+#   application-docker.yml (run inside Docker Compose)
+# Activate via: -Dspring.profiles.active=local  |  docker
+# ─────────────────────────────────────────────────────────────────────────────
+
 server:
   port: 8082
   shutdown: graceful
@@ -8,9 +15,9 @@ spring:
   lifecycle:
     timeout-per-shutdown-phase: 20s
   datasource:
-    url: ${DB_URL:jdbc:postgresql://localhost:5432/devflow}
-    username: ${DB_USERNAME:devflow}
-    password: ${DB_PASSWORD:devflow}
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/devflow_auth}
+    username: ${DB_USERNAME:imed}
+    password: ${DB_PASSWORD:admin}
     hikari:
       maximum-pool-size: 10
       minimum-idle: 2
@@ -29,17 +36,18 @@ spring:
     oauth2:
       resourceserver:
         jwt:
-          issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:8081/realms/devflow}
+          issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:9091/realms/devflow}
 
 keycloak:
-  admin-base-url: ${KEYCLOAK_ADMIN_BASE_URL:http://localhost:8081}
+  admin-base-url: ${KEYCLOAK_ADMIN_BASE_URL:http://localhost:9091}
   realm: ${KEYCLOAK_REALM:devflow}
+  web-client-id: ${KEYCLOAK_WEB_CLIENT_ID:devflow-web}
   client-id: ${KEYCLOAK_ADMIN_CLIENT_ID:devflow-auth-service}
-  client-secret: ${KEYCLOAK_ADMIN_CLIENT_SECRET}
+  client-secret: ${KEYCLOAK_ADMIN_CLIENT_SECRET:4KPGLJd8adlHLwVWckUSYp3voTeDOF8S}
   default-role: ${KEYCLOAK_DEFAULT_ROLE:ROLE_SUPPORT}
-  admin-seed-username: ${ADMIN_SEED_USERNAME:}
-  admin-seed-email: ${ADMIN_SEED_EMAIL:}
-  admin-seed-password: ${ADMIN_SEED_PASSWORD:}
+  admin-seed-username: ${ADMIN_SEED_USERNAME:admin}
+  admin-seed-email: ${ADMIN_SEED_EMAIL:admin@devflow.local}
+  admin-seed-password: ${ADMIN_SEED_PASSWORD:Devflow123!}
   admin-seed-role: ${ADMIN_SEED_ROLE:ROLE_ADMIN}
 
 app:

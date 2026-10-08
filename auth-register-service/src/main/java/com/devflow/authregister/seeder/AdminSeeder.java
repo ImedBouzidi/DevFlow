@@ -19,9 +19,8 @@ import org.springframework.transaction.annotation.Transactional;
  * <li>If {@code ADMIN_SEED_USERNAME} is blank the seeder is silently
  * skipped.</li>
  * <li>If the admin already exists locally nothing is created.</li>
- * <li>If Keycloak already has the user a {@link RegistrationConflictException}
- * is caught
- * and the local-DB persistence is still attempted.</li>
+ * <li>If Keycloak already has the user, its identity is resolved and local-DB
+ * persistence is still attempted.</li>
  * </ul>
  */
 @Component
@@ -66,6 +65,7 @@ public class AdminSeeder implements CommandLineRunner {
 
         // --- Step 1: create the Keycloak identity ---
         String keycloakUserId;
+        boolean keycloakUserCreated = false;
         try {
             keycloakUserId = keycloakAdminClient.createUser(
                     normalizedUsername,
@@ -73,17 +73,12 @@ public class AdminSeeder implements CommandLineRunner {
                     "Admin",
                     "User",
                     password);
+                    keycloakUserCreated = true;
             log.debug("AdminSeeder: Keycloak user created with id '{}'.", keycloakUserId);
         } catch (RegistrationConflictException e) {
-            // Keycloak already has this user — resolve the id from Keycloak and continue.
             log.warn("AdminSeeder: Keycloak user '{}' already exists — will attempt local persistence.",
                     normalizedUsername);
-            // KeycloakAdminClient.findUserId is private; re-create to get the id via
-            // username lookup.
-            // The safest fallback here is to abort and let an operator handle it manually.
-            log.error("AdminSeeder: Cannot resolve existing Keycloak id for '{}' — aborting seed. "
-                    + "Please ensure the local app_users row exists manually.", normalizedUsername);
-            return;
+                    keycloakUserId = keycloakAdminClient.findUserIdByUsername(normalizedUsername);
         }
 
         // --- Step 2: assign the admin role in Keycloak ---
@@ -93,7 +88,9 @@ public class AdminSeeder implements CommandLineRunner {
         } catch (RuntimeException e) {
             log.error("AdminSeeder: failed to assign role '{}' — rolling back Keycloak user '{}'.", roleName,
                     keycloakUserId, e);
-            keycloakAdminClient.deleteUser(keycloakUserId);
+            if (keycloakUserCreated) {
+                keycloakAdminClient.deleteUser(keycloakUserId);
+            }
             throw e;
         }
 
@@ -109,8 +106,10 @@ public class AdminSeeder implements CommandLineRunner {
                     role));
             log.info("AdminSeeder: admin user '{}' seeded successfully.", normalizedUsername);
         } catch (RuntimeException e) {
-            log.error("AdminSeeder: local persistence failed — rolling back Keycloak user '{}'.", keycloakUserId, e);
-            keycloakAdminClient.deleteUser(keycloakUserId);
+            log.error("AdminSeeder: local persistence failed for Keycloak user '{}'.", keycloakUserId, e);
+            if (keycloakUserCreated) {
+                keycloakAdminClient.deleteUser(keycloakUserId);
+            }
             throw e;
         }
     }

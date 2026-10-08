@@ -1,0 +1,96 @@
+:host {
+  display: block;
+}
+
+.profile-page {
+  display: grid;
+  gap: 1.25rem;
+  padding: 1.5rem clamp(1rem, 3vw, 2rem) 2rem;
+}
+
+.profile-sections {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+  gap: 1rem;
+}
+
+.profile-section {
+  display: grid;
+  gap: 1rem;
+  padding: 1.1rem;
+}
+
+.profile-section__heading h2 {
+  margin: 0 0 0.35rem;
+  color: var(--ink-900);
+  font-size: 1rem;
+}
+
+.profile-section__heading p {
+  margin: 0;
+  color: var(--ink-500);
+  font-size: 0.8rem;
+}
+
+.profile-section__heading strong {
+  color: var(--ink-800);
+}
+
+.profile-section form {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.profile-field {
+  display: grid;
+  gap: 0.35rem;
+  color: var(--ink-700);
+  font-size: 0.8rem;
+  font-weight: 650;
+}
+
+.profile-field input {
+  width: 100%;
+  min-width: 0;
+  min-height: 2.5rem;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  padding: 0.55rem 0.65rem;
+  background: #fff;
+  color: var(--ink-900);
+  font: inherit;
+  font-weight: 400;
+}
+
+.profile-field input:focus {
+  border-color: var(--primary);
+  outline: 3px solid rgb(37 99 235 / 12%);
+}
+
+.profile-field small {
+  color: var(--ink-500);
+  font-size: 0.72rem;
+  font-weight: 400;
+}
+
+.profile-field .field-error {
+  color: #c7353a;
+}
+
+.profile-actions {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 0.25rem;
+}
+
+.profile-state {
+  padding: 1rem;
+  color: var(--ink-500);
+}
+
+@media (max-width: 760px) {
+  .profile-sections {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

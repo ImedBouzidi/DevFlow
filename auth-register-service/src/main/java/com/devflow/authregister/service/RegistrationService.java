@@ -4,11 +4,18 @@ import java.nio.charset.StandardCharsets;
 import java.util.Locale;
 import java.util.UUID;
 import java.util.Map;
+import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import com.devflow.authregister.auth.KeycloakAdminClient;
+import com.devflow.authregister.dto.AdminCreateUserRequest;
+import com.devflow.authregister.dto.AdminUpdateUserRequest;
+import com.devflow.authregister.dto.ChangePasswordRequest;
 import com.devflow.authregister.dto.CurrentUserResponse;
 import com.devflow.authregister.dto.RegisterRequest;
 import com.devflow.authregister.dto.RegisteredUserResponse;
+import com.devflow.authregister.dto.UpdateCurrentUserRequest;
 import com.devflow.authregister.exceptions.CurrentUserNotFoundException;
 import com.devflow.authregister.exceptions.RegistrationConflictException;
 import com.devflow.authregister.user.AppUser;
@@ -42,10 +49,92 @@ public class RegistrationService {
 
     @Transactional
     public RegisteredUserResponse register(RegisterRequest request) {
-        String username = normalizeUsername(request.username());
+        return provision(
+            request.username(), request.email(), request.firstName(), request.lastName(), request.password(),
+            Set.of(UserRole.valueOf(keycloakProperties.defaultRole())), true);
+        }
+
+        @Transactional
+        public RegisteredUserResponse createUser(AdminCreateUserRequest request) {
+        return provision(
+            request.username(), request.email(), request.firstName(), request.lastName(), request.password(),
+            request.roles(), false);
+        }
+
+        @Transactional(readOnly = true)
+        public List<RegisteredUserResponse> users() {
+        return userRepository.findAll().stream().map(this::toRegistrationResponse).toList();
+        }
+
+        @Transactional
+        public CurrentUserResponse updateCurrentUser(Jwt jwt, UpdateCurrentUserRequest request) {
+        AppUser user = findCurrentAppUser(jwt);
         String email = request.email().trim().toLowerCase(Locale.ROOT);
+        userRepository.findByEmailIgnoreCase(email)
+            .filter(existing -> !existing.getId().equals(user.getId()))
+            .ifPresent(existing -> { throw new RegistrationConflictException("That email is already in use"); });
         String firstName = request.firstName().trim();
         String lastName = request.lastName().trim();
+        keycloakAdminClient.updateUser(
+            user.getKeycloakUserId(), user.getUsername(), email, firstName, lastName, user.isEnabled(),
+            email.equalsIgnoreCase(user.getEmail()));
+        user.updateContactInfo(email, firstName, lastName);
+        return toCurrentUserResponse(userRepository.saveAndFlush(user));
+        }
+
+        public void changeCurrentPassword(Jwt jwt, ChangePasswordRequest request) {
+        AppUser user = findCurrentAppUser(jwt);
+        if (request.currentPassword().equals(request.newPassword())) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                org.springframework.http.HttpStatus.BAD_REQUEST, "New password must differ from the current password");
+        }
+        keycloakAdminClient.verifyPassword(user.getUsername(), request.currentPassword());
+        keycloakAdminClient.updatePassword(user.getKeycloakUserId(), request.newPassword());
+        }
+
+        @Transactional
+        public RegisteredUserResponse updateUser(UUID id, AdminUpdateUserRequest request) {
+        AppUser user = userRepository.findById(id)
+            .orElseThrow(() -> new org.springframework.web.server.ResponseStatusException(
+                org.springframework.http.HttpStatus.NOT_FOUND, "User not found"));
+        String email = request.email().trim().toLowerCase(Locale.ROOT);
+        userRepository.findByEmailIgnoreCase(email)
+            .filter(existing -> !existing.getId().equals(id))
+            .ifPresent(existing -> { throw new RegistrationConflictException("That email is already in use"); });
+        Set<UserRole> roles = request.roles().stream().sorted().collect(Collectors.toCollection(java.util.LinkedHashSet::new));
+        keycloakAdminClient.updateUser(
+            user.getKeycloakUserId(), user.getUsername(), email, request.firstName().trim(),
+            request.lastName().trim(), request.enabled());
+        keycloakAdminClient.setRoles(user.getKeycloakUserId(), roles.stream().map(Enum::name).collect(Collectors.toSet()));
+        user.updateProfile(email, request.firstName().trim(), request.lastName().trim(), roles, request.enabled());
+        return toRegistrationResponse(userRepository.saveAndFlush(user));
+        }
+
+        @Transactional
+        public void deleteUser(UUID id) {
+        AppUser user = userRepository.findById(id)
+            .orElseThrow(() -> new org.springframework.web.server.ResponseStatusException(
+                org.springframework.http.HttpStatus.NOT_FOUND, "User not found"));
+        if (user.getRole() == UserRole.ROLE_ADMIN && userRepository.countByRole(UserRole.ROLE_ADMIN) <= 1) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                org.springframework.http.HttpStatus.CONFLICT, "The last administrator cannot be removed");
+        }
+        keycloakAdminClient.deleteUser(user.getKeycloakUserId());
+        userRepository.delete(user);
+        }
+
+        private RegisteredUserResponse provision(
+            String rawUsername,
+            String rawEmail,
+            String rawFirstName,
+            String rawLastName,
+            String password,
+            Set<UserRole> roles,
+            boolean useDefaultRoleMapping) {
+        String username = normalizeUsername(rawUsername);
+        String email = rawEmail.trim().toLowerCase(Locale.ROOT);
+        String firstName = rawFirstName.trim();
+        String lastName = rawLastName.trim();
 
         if (userRepository.findByUsernameIgnoreCase(username).isPresent()
                 || userRepository.findByEmailIgnoreCase(email).isPresent()) {
@@ -60,9 +149,13 @@ public class RegistrationService {
                     email,
                     firstName,
                     lastName,
-                    request.password());
+                        password);
             keycloakUserCreated = true;
-            keycloakAdminClient.assignDefaultRole(keycloakUserId);
+            if (useDefaultRoleMapping) {
+                keycloakAdminClient.assignDefaultRole(keycloakUserId);
+            } else {
+                keycloakAdminClient.setRoles(keycloakUserId, roles.stream().map(Enum::name).collect(Collectors.toSet()));
+            }
         } catch (RuntimeException exception) {
             if (keycloakUserCreated && keycloakUserId != null) {
                 compensateKeycloakUser(keycloakUserId);
@@ -71,14 +164,13 @@ public class RegistrationService {
         }
 
         try {
-            UserRole defaultRole = UserRole.valueOf(keycloakProperties.defaultRole());
             AppUser user = userRepository.saveAndFlush(AppUser.create(
                     keycloakUserId,
                     username,
                     email,
                     firstName,
                     lastName,
-                    defaultRole));
+                    roles));
             return toRegistrationResponse(user);
         } catch (DataIntegrityViolationException exception) {
             compensateKeycloakUser(keycloakUserId);
@@ -158,6 +250,20 @@ public class RegistrationService {
         return username.trim().toLowerCase(Locale.ROOT);
     }
 
+        private AppUser findCurrentAppUser(Jwt jwt) {
+        String subject = jwt.getSubject();
+        String username = jwt.getClaimAsString("preferred_username");
+        return userRepository.findByKeycloakUserId(subject)
+            .or(() -> username == null ? java.util.Optional.empty() : userRepository.findByUsernameIgnoreCase(username))
+            .orElseThrow(() -> new CurrentUserNotFoundException("Your account is not available for profile updates"));
+        }
+
+        private CurrentUserResponse toCurrentUserResponse(AppUser user) {
+        return new CurrentUserResponse(
+            user.getId(), user.getUsername(), user.getEmail(), user.getFirstName(), user.getLastName(),
+            user.getRole().name(), user.isEnabled(), user.getCreatedAt());
+        }
+
     private RegisteredUserResponse toRegistrationResponse(AppUser user) {
         return new RegisteredUserResponse(
                 user.getId(),
@@ -167,7 +273,8 @@ public class RegistrationService {
                 user.getLastName(),
                 user.getRole().name(),
                 user.isEnabled(),
-                user.getCreatedAt());
+                user.getCreatedAt(),
+                user.getRoles().stream().map(Enum::name).sorted().toList());
     }
 
     private void compensateKeycloakUser(String keycloakUserId) {

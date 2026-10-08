@@ -16,8 +16,44 @@ export const authGuard: CanActivateFn = (_route, state) => {
   });
 };
 
+export const adminGuard: CanActivateFn = (_route, _state) => {
+  const authService = inject(AuthService);
+  const router = inject(Router);
+
+  if (!authService.isAuthenticated()) {
+    return router.createUrlTree(['/login']);
+  }
+
+  if (authService.hasAnyRole(['ROLE_ADMIN'])) {
+    return true;
+  }
+
+  return router.createUrlTree(['/dashboard']);
+};
+
+export const roleGuard = (requiredRoles: readonly string[]): CanActivateFn => () => {
+  const authService = inject(AuthService);
+  const router = inject(Router);
+
+  if (authService.hasAnyRole([...requiredRoles, 'ROLE_ADMIN'])) {
+    return true;
+  }
+  return router.createUrlTree([authService.dashboardPath()]);
+};
+
+export const dashboardRedirectGuard: CanActivateFn = () => {
+  const authService = inject(AuthService);
+  const router = inject(Router);
+  return router.createUrlTree([authService.dashboardPath()]);
+};
+
 export const guestGuard: CanActivateFn = () => {
   const authService = inject(AuthService);
   const router = inject(Router);
-  return authService.isAuthenticated() ? router.createUrlTree(['/dashboard']) : true;
+
+  if (!authService.isAuthenticated()) {
+    return true;
+  }
+
+  return router.createUrlTree([authService.dashboardPath()]);
 };

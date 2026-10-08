@@ -12,7 +12,8 @@ spring:
     oauth2:
       resourceserver:
         jwt:
-          issuer-uri: ${KEYCLOAK_ISSUER_URI:http://keycloak:8080/realms/devflow}
+          issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:9091/realms/devflow}
+          jwk-set-uri: ${KEYCLOAK_JWK_SET_URI:http://keycloak:8080/realms/devflow/protocol/openid-connect/certs}
 
 app:
   cors:

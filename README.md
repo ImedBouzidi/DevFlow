@@ -1,191 +1,49 @@
 # DevFlow AI Platform
 
-DevFlow AI is an intelligent incident and engineering-operations platform. The source documents describe incident intake, lifecycle management, AI-assisted investigation, similar-incident retrieval, knowledge-base RAG, notifications, monitoring, dashboards, and role-based access.
+Angular and Spring Boot services for DevFlow's incident-management platform, with Keycloak authentication and a Flask/scikit-learn analysis API.
 
-This repository implements the requested first platform slice:
+## Services
 
-- **Angular 19 standalone web app** with Keycloak Authorization Code + PKCE, reactive login/registration flows, protected routes, and responsive operations/incident screens based on the supplied mockups.
-- **Spring Boot 3.5.16 / Spring Cloud 2025.0.3** services:
-  - `discovery-server` — Eureka Server.
-  - `api-gateway` — reactive Spring Cloud Gateway and OAuth2 resource server.
-  - `auth-register-service` — Keycloak-backed registration and current-user API backed by PostgreSQL/Flyway.
-- **Local infrastructure** for PostgreSQL and Keycloak, including a development realm and sample users.
+- `frontend`: Angular application served by Nginx; proxies `/api` to the gateway.
+- `api-gateway`: JWT-validating Spring Cloud Gateway on port `9090`.
+- `discovery-server`: Eureka on port `8761`.
+- `auth-register-service`: Keycloak-backed profile and user APIs on port `8082`.
+- `incident-service`: PostgreSQL-backed incident API on port `8083`.
+- `ai-analysis-server`: Flask predictions API on port `5000`.
+- `postgres`: separate `devflow_auth` and `devflow` databases.
+- `keycloak`: imported `devflow` realm on port `9091`.
 
-> The dashboard and incident screens currently use clearly marked representative UI data. The incident-management write/API service, AI analysis, vector search, Kafka workflows, and n8n integrations are intentionally the next vertical slices.
+## Run the complete stack
 
-## Repository layout
-
-```text
-devflow-platform/
-├── api-gateway/                  # Spring Cloud Gateway + Keycloak JWT validation
-├── auth-register-service/        # Registration, current user, Keycloak Admin API, PostgreSQL
-├── discovery-server/             # Eureka Server
-├── frontend/                     # Angular 19 standalone application
-├── infrastructure/
-│   ├── docker-compose.yml        # PostgreSQL + Keycloak
-│   └── keycloak/devflow-realm.json
-├── docs/                         # Architecture and requirements traceability
-├── Makefile
-└── pom.xml
-```
-
-## Prerequisites
-
-- Java 17+
-- Maven 3.8+
-- Node.js 20.11+ (the repository includes `.nvmrc`)
-- Docker with Compose v2
-
-## Run locally
-
-### 1. Start infrastructure
+Requirements: Docker Engine and Docker Compose v2.
 
 ```bash
-cp infrastructure/.env.example infrastructure/.env
-docker compose -f infrastructure/docker-compose.yml up -d
+cp .env.example .env
+docker compose -f infrastructure/docker-compose.yml up --build -d
+docker compose -f infrastructure/docker-compose.yml ps
 ```
 
-Keycloak and PostgreSQL are then available at:
-
-- Keycloak administration: <http://localhost:8081/admin>
-- DevFlow realm: <http://localhost:8081/realms/devflow>
-- PostgreSQL: `localhost:5432`, database `devflow`
-
-The imported development service-account secret is `devflow-local-change-me`. It is only for local development; rotate it and use an external secret store outside local development.
-
-If a local port is already occupied, set `POSTGRES_PORT`/`KEYCLOAK_PORT` in `infrastructure/.env` and provide the matching `DB_URL` and `KEYCLOAK_ADMIN_BASE_URL`/`KEYCLOAK_ISSUER_URI` to the Spring services.
-
-### 2. Start Eureka
-
-In terminal 1:
+Open <http://localhost:4200>. Keycloak administration is at <http://localhost:9091/admin>, the gateway at <http://localhost:9090>, and Eureka at <http://localhost:8761>. Compose waits for healthy dependencies and provisions both databases, including when the existing PostgreSQL volume has already been initialized.
 
 ```bash
-mvn -pl discovery-server spring-boot:run
-```
-
-Eureka dashboard: <http://localhost:8761>
-
-### 3. Start the gateway and auth service
-
-Load the local environment in terminals 2 and 3:
-
-```bash
-set -a
-source infrastructure/.env
-set +a
-```
-
-Terminal 2:
-
-```bash
-mvn -pl api-gateway spring-boot:run
-```
-
-Terminal 3:
-
-```bash
-mvn -pl auth-register-service spring-boot:run
-```
-
-The gateway listens on `http://localhost:8080`; the auth service listens directly on `http://localhost:8082`.
-
-### 4. Start Angular
-
-```bash
-cd frontend
-npm install
-npm start
-```
-
-Open <http://localhost:4200>. The Angular dev server proxies `/api` to the gateway.
-
-### Development users
-
-The imported Keycloak realm contains these local-only users. All use `Devflow123!`:
-
-| Username | Role |
-| --- | --- |
-| `admin` | `ROLE_ADMIN`, `ROLE_MANAGER`, `ROLE_DEVELOPER`, `ROLE_SUPPORT` |
-| `manager` | `ROLE_MANAGER`, `ROLE_DEVELOPER` |
-| `developer` | `ROLE_DEVELOPER` |
-| `support` | `ROLE_SUPPORT` |
-
-Users created through the DevFlow registration form are created in Keycloak and PostgreSQL with the default `ROLE_SUPPORT`. Keycloak will require a permanent password update for newly registered users.
-
-## Useful commands
-
-```bash
-# Build and test all Maven modules
-mvn clean verify
-
-# Build and test the frontend
-cd frontend
-npm run build
-npm run test:ci
-```
-
-Convenience targets are also available from the project root:
-
-```bash
-make infra-up
-make infra-logs
-make discovery
-make api-gateway
-make auth-service
-make frontend
-make verify
-```
-
-Stop dependencies with:
-
-```bash
+docker compose -f infrastructure/docker-compose.yml logs -f
 docker compose -f infrastructure/docker-compose.yml down
 ```
 
-## API surface
+Database data persists in the `devflow-postgres-data` volume. `down` does not remove that volume.
 
-The gateway routes the auth API to the Eureka service ID `AUTH-REGISTER-SERVICE`:
+The checked-in realm, bootstrap users, and `.env.example` values are local-development defaults only. For deployments, replace all passwords/client secrets and use a secret manager. The frontend and realm are configured for `localhost:4200` and Keycloak `localhost:9091`; changing those ports requires updating the realm and frontend environment before image build.
 
-| Method | Path | Authentication | Purpose |
-| --- | --- | --- | --- |
-| `POST` | `/api/auth/register` | Public | Create a Keycloak + PostgreSQL support account |
-| `GET` | `/api/auth/me` | Keycloak bearer token | Return the current local user profile |
-| `GET` | `/actuator/health` | Public | Service health |
+## Build and tests
 
-Registration validates strong passwords and returns RFC 9457-style problem details for validation, conflicts, and identity-provider failures. If PostgreSQL persistence fails after Keycloak creation, the service attempts a compensating Keycloak deletion. Passwords are never persisted in the application database.
+```bash
+mvn -B clean verify
+cd frontend && npm ci && npm run build
+cd ../ai-analysis-server && python3 -m pip install -r requirements-dev.txt && python3 -m pytest -q
+```
 
-Login is intentionally **not** implemented as a password endpoint in the application. The browser uses Keycloak's Authorization Code + PKCE flow, and the gateway validates the resulting JWT using the configured Keycloak issuer.
+## Jenkins
 
-## Configuration
+The root [Jenkinsfile](Jenkinsfile) runs backend tests, Angular build, AI tests, Compose validation, and builds all container images. Its Jenkins agent needs Java 17, Maven, Node.js 22/npm, Python 3, Docker Compose v2, and permission to access the Docker daemon.
 
-The most important environment variables are:
-
-| Variable | Default | Used by |
-| --- | --- | --- |
-| `KEYCLOAK_ADMIN_CLIENT_SECRET` | none | auth/register service; required for Keycloak Admin API |
-| `KEYCLOAK_ADMIN_BASE_URL` | `http://localhost:8081` | auth/register service |
-| `KEYCLOAK_ISSUER_URI` | `http://localhost:8081/realms/devflow` | gateway and auth/register service |
-| `DB_URL` | `jdbc:postgresql://localhost:5432/devflow` | auth/register service |
-| `DB_USERNAME` / `DB_PASSWORD` | `devflow` / `devflow` | auth/register service |
-| `EUREKA_SERVICE_URL` | `http://localhost:8761/eureka/` | gateway and auth/register service |
-| `CORS_ALLOWED_ORIGINS` | `http://localhost:4200` | gateway and auth/register service |
-
-Frontend endpoints are compile-time environment values in `frontend/src/environments/`. Change the Keycloak URL and client ID before deploying to another environment.
-
-## Verification
-
-The current implementation has been checked with:
-
-- `mvn clean verify` (Maven modules and unit tests)
-- `npm run build` (Angular production build)
-- `npm run test:ci` (Angular Chrome Headless test)
-
-The Angular build uses Angular 19.2.x and the backend uses Spring Boot 3.5.x as requested. The original technology-stack image mentioned React/FastAPI; this project intentionally follows the explicit Angular 19/Spring Boot 3.5 implementation request.
-
-## Next implementation slices
-
-1. Add `incident-service` with lifecycle, comments, assignment, resolution, closure, and audit APIs.
-2. Add Kafka event contracts and an n8n notification adapter.
-3. Add the AI analysis service and Qdrant-backed similar-incident/knowledge-base retrieval.
-4. Add Prometheus/Actuator metrics and a service-health view.
-5. Add deployment manifests and CI/CD after the application contracts stabilize.
+See [infrastructure/README.md](infrastructure/README.md) for service configuration and deployment notes.

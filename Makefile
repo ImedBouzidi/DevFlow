@@ -1,9 +1,12 @@
-.PHONY: infra-up infra-down infra-logs discovery api-gateway auth-service frontend backend-test frontend-test verify
+.PHONY: infra-up infra-build infra-down infra-logs discovery api-gateway auth-service frontend backend-test frontend-test verify
 
 COMPOSE := docker compose -f infrastructure/docker-compose.yml
 
 infra-up:
-	$(COMPOSE) up -d
+	$(COMPOSE) up --build -d
+
+infra-build:
+	$(COMPOSE) build
 
 infra-down:
 	$(COMPOSE) down

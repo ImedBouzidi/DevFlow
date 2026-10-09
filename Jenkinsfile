@@ -51,10 +51,11 @@ pipeline {
         stage('Python tests') {
             steps {
                 sh '''
-                    mkdir -p "$WORKSPACE/.cache/pip-ai" "$WORKSPACE/ai-analysis-server/test-results"
+                    mkdir -p "$WORKSPACE/.cache/pip-ai" "$WORKSPACE/.jenkins-test-results/$BUILD_NUMBER"
                     docker run --rm \
                       --user "$(id -u):$(id -g)" \
                       --volume "$WORKSPACE/ai-analysis-server:/workspace" \
+                      --volume "$WORKSPACE/.jenkins-test-results/$BUILD_NUMBER:/reports" \
                       --volume "$WORKSPACE/.cache/pip-ai:/pip-cache" \
                       --workdir /workspace \
                       --env PIP_CACHE_DIR=/pip-cache \
@@ -62,12 +63,12 @@ pipeline {
                       --env PIP_RETRIES=10 \
                       --env HOME=/tmp \
                       python:3.11-slim \
-                      sh -ec 'python -m venv /tmp/venv && /tmp/venv/bin/python -m pip install -r requirements-dev.txt && /tmp/venv/bin/python -m pytest -q --junitxml=test-results/pytest.xml'
+                      sh -ec 'python -m venv /tmp/venv && /tmp/venv/bin/python -m pip install -r requirements-dev.txt && /tmp/venv/bin/python -m pytest -q --junitxml=/reports/pytest.xml'
                 '''
             }
             post {
                 always {
-                    junit allowEmptyResults: true, testResults: 'ai-analysis-server/test-results/*.xml'
+                    junit allowEmptyResults: true, testResults: '.jenkins-test-results/*/pytest.xml'
                 }
             }
         }

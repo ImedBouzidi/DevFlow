@@ -5,8 +5,8 @@
 spring:
   datasource:
     url: ${DB_URL:jdbc:postgresql://localhost:5432/devflow}
-    username: ${DB_USERNAME:devflow}
-    password: ${DB_PASSWORD:devflow}
+    username: ${DB_USERNAME:imed}
+    password: ${DB_PASSWORD:admin}
   security:
     oauth2:
       resourceserver:

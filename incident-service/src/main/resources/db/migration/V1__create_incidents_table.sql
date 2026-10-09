@@ -26,10 +26,10 @@ CREATE TABLE incidents
     -- Initial context (embedded)
     ctx_error_code         VARCHAR(100),
     ctx_http_status        INT,
-    ctx_cpu_percent        NUMERIC(5, 2),
-    ctx_memory_percent     NUMERIC(5, 2),
+    ctx_cpu_percent        DOUBLE PRECISION,
+    ctx_memory_percent     DOUBLE PRECISION,
     ctx_latency_ms         INT,
-    ctx_error_rate_percent NUMERIC(6, 2),
+    ctx_error_rate_percent DOUBLE PRECISION,
     ctx_affected_users     INT,
     ctx_is_business_hours  BOOLEAN,
     ctx_is_weekend         BOOLEAN,
@@ -37,12 +37,12 @@ CREATE TABLE incidents
     -- Resolution (embedded)
     res_root_cause             VARCHAR(500),
     res_action                 VARCHAR(500),
-    res_resolution_time_hours  NUMERIC(8, 2),
+    res_resolution_time_hours  DOUBLE PRECISION,
 
     -- ML labels (embedded)
     label_severity_target              VARCHAR(20),
     label_category_target              VARCHAR(30),
-    label_resolution_time_target_hours NUMERIC(8, 2)
+    label_resolution_time_target_hours DOUBLE PRECISION
 );
 
 -- Indexes for common filter queries

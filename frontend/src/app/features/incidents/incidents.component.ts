@@ -1,4 +1,9 @@
-import { ChangeDetectionStrategy, Component, computed, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { DecimalPipe } from '@angular/common';
+import { HttpClient, HttpErrorResponse } from '@angular/common/http';
+import { firstValueFrom } from 'rxjs';
+
+import { environment } from '../../../environments/environment';
 
 type Severity = 'Critical' | 'High' | 'Medium' | 'Low';
 type IncidentStatus = 'Open' | 'In Progress' | 'Investigating' | 'Resolved' | 'Blocked';
@@ -21,18 +26,43 @@ interface Incident {
   similar: number;
 }
 
+interface IncidentAnalysis {
+  severity: { value: string; confidence: number | null };
+  category: { value: string; confidence: number | null };
+  resolution_time_hours: number;
+}
+
+interface CreatedIncident {
+  incidentId: string;
+  title: string;
+  description: string;
+  severity: string;
+  category: string;
+  service: string;
+  environment: string;
+}
+
 @Component({
   selector: 'app-incidents',
+  imports: [DecimalPipe],
   templateUrl: './incidents.component.html',
   styleUrl: './incidents.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class IncidentsComponent {
+  private readonly http = inject(HttpClient);
   readonly searchTerm = signal('');
   readonly statusFilter = signal('All statuses');
   readonly severityFilter = signal('All severities');
   readonly selectedId = signal('INC-1042');
-  readonly createNotice = signal(false);
+  readonly createOpen = signal(false);
+  readonly analysis = signal<IncidentAnalysis | null>(null);
+  readonly analysisLoading = signal(false);
+  readonly createLoading = signal(false);
+  readonly formError = signal('');
+  readonly createdIncidents = signal<Incident[]>([]);
+
+  readonly allIncidents = computed(() => [...this.createdIncidents(), ...this.incidents]);
 
   readonly incidents: readonly Incident[] = [
     {
@@ -144,7 +174,7 @@ export class IncidentsComponent {
     const status = this.statusFilter();
     const severity = this.severityFilter();
 
-    return this.incidents.filter((incident) => {
+    return this.allIncidents().filter((incident) => {
       const matchesQuery =
         !query ||
         incident.id.toLowerCase().includes(query) ||
@@ -157,8 +187,143 @@ export class IncidentsComponent {
   });
 
   readonly selectedIncident = computed(
-    () => this.incidents.find((incident) => incident.id === this.selectedId()) ?? null
+    () => this.allIncidents().find((incident) => incident.id === this.selectedId()) ?? null
   );
+
+  openCreate(): void {
+    this.analysis.set(null);
+    this.formError.set('');
+    this.createOpen.set(true);
+  }
+
+  async analyzeIncident(form: HTMLFormElement): Promise<void> {
+    if (!form.reportValidity()) return;
+
+    const data = new FormData(form);
+    this.analysisLoading.set(true);
+    this.formError.set('');
+
+    try {
+      this.analysis.set(await firstValueFrom(this.http.post<IncidentAnalysis>(
+        `${environment.aiAnalysisBaseUrl}/api/v1/predictions/incident`,
+        {
+          title: this.stringValue(data, 'title'),
+          description: this.stringValue(data, 'description'),
+          service: this.stringValue(data, 'service'),
+          environment: this.stringValue(data, 'environment'),
+          origin: this.stringValue(data, 'origin'),
+          initial_context: {
+            error_code: this.stringValue(data, 'errorCode') || null,
+            http_status: this.numberValue(data, 'httpStatus'),
+            cpu_percent: this.numberValue(data, 'cpuPercent'),
+            memory_percent: this.numberValue(data, 'memoryPercent'),
+            latency_ms: this.numberValue(data, 'latencyMs'),
+            error_rate_percent: this.numberValue(data, 'errorRatePercent'),
+            affected_users: this.numberValue(data, 'affectedUsers'),
+            is_business_hours: data.get('isBusinessHours') === 'on',
+            is_weekend: data.get('isWeekend') === 'on'
+          }
+        }
+      )));
+    } catch (error) {
+      this.formError.set(this.errorMessage(error, 'AI analysis is unavailable. You can still create the incident.'));
+    } finally {
+      this.analysisLoading.set(false);
+    }
+  }
+
+  async createIncident(form: HTMLFormElement): Promise<void> {
+    if (!form.reportValidity()) return;
+
+    const data = new FormData(form);
+    this.createLoading.set(true);
+    this.formError.set('');
+
+    try {
+      const created: CreatedIncident = await firstValueFrom(this.http.post<CreatedIncident>(
+        `${environment.apiBaseUrl}/api/incidents`,
+        {
+          title: this.stringValue(data, 'title'),
+          description: this.stringValue(data, 'description'),
+          service: this.stringValue(data, 'service'),
+          environment: this.stringValue(data, 'environment'),
+          origin: this.stringValue(data, 'origin'),
+          severity: this.stringValue(data, 'severity'),
+          category: this.stringValue(data, 'category'),
+          initialContext: {
+            errorCode: this.stringValue(data, 'errorCode') || null,
+            httpStatus: this.numberValue(data, 'httpStatus'),
+            cpuPercent: this.numberValue(data, 'cpuPercent'),
+            memoryPercent: this.numberValue(data, 'memoryPercent'),
+            latencyMs: this.numberValue(data, 'latencyMs'),
+            errorRatePercent: this.numberValue(data, 'errorRatePercent'),
+            affectedUsers: this.numberValue(data, 'affectedUsers'),
+            isBusinessHours: data.get('isBusinessHours') === 'on',
+            isWeekend: data.get('isWeekend') === 'on'
+          }
+        }
+      ));
+
+      const incident = this.toIncident(created);
+      this.createdIncidents.update((items) => [incident, ...items]);
+      this.selectedId.set(incident.id);
+      this.createOpen.set(false);
+    } catch (error) {
+      this.formError.set(this.errorMessage(error, 'Incident could not be created. Please try again.'));
+    } finally {
+      this.createLoading.set(false);
+    }
+  }
+
+  private stringValue(data: FormData, name: string): string {
+    return String(data.get(name) ?? '').trim();
+  }
+
+  private numberValue(data: FormData, name: string): number | null {
+    const value = String(data.get(name) ?? '').trim();
+    return value === '' ? null : Number(value);
+  }
+
+  private errorMessage(error: unknown, fallback: string): string {
+    if (error instanceof HttpErrorResponse && error.status === 0) {
+      return 'Could not reach the service. Check that the API is running and try again.';
+    }
+    return fallback;
+  }
+
+  private toIncident(created: CreatedIncident): Incident {
+    const now = new Date();
+    return {
+      id: created.incidentId,
+      title: created.title,
+      description: created.description,
+      service: created.service,
+      environment: created.environment,
+      severity: this.displaySeverity(created.severity),
+      status: 'Open',
+      reporter: 'Support',
+      assignee: 'Unassigned',
+      created: now.toLocaleString(),
+      age: 'Just now',
+      confidence: Math.round((this.analysis()?.severity.confidence ?? 0) * 100),
+      category: created.category,
+      aiSummary: this.analysis()
+        ? `Estimated resolution time: ${this.analysis()!.resolution_time_hours.toFixed(1)} hours.`
+        : 'No AI analysis was run for this incident.',
+      similar: 0
+    };
+  }
+
+  displaySeverity(value: string): Severity {
+    return `${value[0]}${value.slice(1).toLowerCase()}` as Severity;
+  }
+
+  applyAnalysis(severity: HTMLSelectElement, category: HTMLSelectElement): void {
+    const result = this.analysis();
+    if (!result) return;
+    severity.value = result.severity.value;
+    category.value = result.category.value;
+  }
 
   updateSearch(event: Event): void {
     this.searchTerm.set((event.target as HTMLInputElement).value);

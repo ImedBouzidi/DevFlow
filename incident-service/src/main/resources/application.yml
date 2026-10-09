@@ -16,8 +16,8 @@ spring:
     timeout-per-shutdown-phase: 20s
   datasource:
     url: ${DB_URL:jdbc:postgresql://localhost:5432/devflow}
-    username: ${DB_USERNAME:devflow}
-    password: ${DB_PASSWORD:devflow}
+    username: ${DB_USERNAME:imed}
+    password: ${DB_PASSWORD:admin}
     hikari:
       maximum-pool-size: 10
       minimum-idle: 2
@@ -63,3 +63,9 @@ management:
   info:
     env:
       enabled: true
+keycloak:
+  admin-base-url: ${KEYCLOAK_ADMIN_BASE_URL:http://localhost:9091}
+  realm: ${KEYCLOAK_REALM:devflow}
+  web-client-id: ${KEYCLOAK_WEB_CLIENT_ID:devflow-web}
+  client-id: ${KEYCLOAK_ADMIN_CLIENT_ID:devflow-incident-service}
+  client-secret: ${KEYCLOAK_ADMIN_CLIENT_SECRET:cUboRWPWJMXreWUbLX4FerzuNh1RX7b9}

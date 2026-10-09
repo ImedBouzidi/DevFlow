@@ -5,17 +5,149 @@
       <h1>Incidents</h1>
       <p>Track, investigate, and resolve operational issues with your team.</p>
     </div>
-    <button class="button" type="button" (click)="createNotice.set(true)">
+    <button class="button" type="button" (click)="openCreate()">
       <svg viewBox="0 0 18 18" aria-hidden="true"><path d="M9 3v12M3 9h12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" /></svg>
       Create incident
     </button>
   </header>
 
-  @if (createNotice()) {
-    <div class="inline-alert inline-alert--info" role="status">
-      <span aria-hidden="true">i</span>
-      <span>Incident creation is represented in this UI slice. The write API will be added with the incident service.</span>
-      <button type="button" (click)="createNotice.set(false)" aria-label="Dismiss message">×</button>
+  @if (createOpen()) {
+    <div class="create-backdrop" role="presentation" (click)="createOpen.set(false)">
+      <section class="create-dialog" role="dialog" aria-modal="true" aria-labelledby="create-title" (click)="$event.stopPropagation()">
+        <header class="create-dialog__header">
+          <div>
+            <span class="eyebrow">Support intake</span>
+            <h2 id="create-title">Create incident</h2>
+            <p>Describe the issue and add any signals available at report time.</p>
+          </div>
+          <button class="icon-button" type="button" aria-label="Close" (click)="createOpen.set(false)">×</button>
+        </header>
+
+        <form #incidentForm (submit)="$event.preventDefault(); createIncident(incidentForm)">
+          <div class="create-dialog__body">
+            <div class="form-grid">
+              <label class="form-field form-field--wide">
+                <span>Incident title <b>*</b></span>
+                <input name="title" maxlength="255" required placeholder="For example, Checkout requests timing out" />
+              </label>
+              <label class="form-field form-field--wide">
+                <span>Description <b>*</b></span>
+                <textarea name="description" required rows="4" placeholder="What happened, who is affected, and what symptoms are visible?"></textarea>
+              </label>
+              <label class="form-field">
+                <span>Service <b>*</b></span>
+                <input name="service" maxlength="100" required placeholder="payment-api" />
+              </label>
+              <label class="form-field">
+                <span>Environment <b>*</b></span>
+                <select name="environment" required>
+                  <option value="production">Production</option>
+                  <option value="staging">Staging</option>
+                  <option value="development">Development</option>
+                </select>
+              </label>
+              <label class="form-field">
+                <span>Reported by <b>*</b></span>
+                <select name="origin" required>
+                  <option value="SUPPORT">Support</option>
+                  <option value="MONITORING">Monitoring</option>
+                  <option value="DEVELOPER">Developer</option>
+                  <option value="API">API</option>
+                </select>
+              </label>
+              <label class="form-field">
+                <span>Severity <b>*</b></span>
+                <select #severityInput name="severity" required>
+                  <option value="LOW">Low</option>
+                  <option value="MEDIUM" selected>Medium</option>
+                  <option value="HIGH">High</option>
+                  <option value="CRITICAL">Critical</option>
+                </select>
+              </label>
+              <label class="form-field">
+                <span>Category <b>*</b></span>
+                <select #categoryInput name="category" required>
+                  <option value="BUG">Bug</option>
+                  <option value="DATABASE">Database</option>
+                  <option value="SECURITY">Security</option>
+                  <option value="INFRASTRUCTURE">Infrastructure</option>
+                  <option value="NETWORK">Network</option>
+                  <option value="PERFORMANCE">Performance</option>
+                  <option value="AUTHENTICATION">Authentication</option>
+                  <option value="PAYMENT">Payment</option>
+                </select>
+              </label>
+            </div>
+
+            <details class="telemetry-fields">
+              <summary>Initial telemetry <span>Optional · improves the estimate</span></summary>
+              <div class="form-grid">
+                <label class="form-field">
+                  <span>Error code</span>
+                  <input name="errorCode" placeholder="GATEWAY_TIMEOUT" />
+                </label>
+                <label class="form-field">
+                  <span>HTTP status</span>
+                  <input name="httpStatus" type="number" min="100" max="599" placeholder="504" />
+                </label>
+                <label class="form-field">
+                  <span>CPU (%)</span>
+                  <input name="cpuPercent" type="number" min="0" step="0.1" placeholder="72.5" />
+                </label>
+                <label class="form-field">
+                  <span>Memory (%)</span>
+                  <input name="memoryPercent" type="number" min="0" step="0.1" placeholder="68.1" />
+                </label>
+                <label class="form-field">
+                  <span>Latency (ms)</span>
+                  <input name="latencyMs" type="number" min="0" placeholder="3100" />
+                </label>
+                <label class="form-field">
+                  <span>Error rate (%)</span>
+                  <input name="errorRatePercent" type="number" min="0" step="0.01" placeholder="7.2" />
+                </label>
+                <label class="form-field">
+                  <span>Affected users</span>
+                  <input name="affectedUsers" type="number" min="0" placeholder="850" />
+                </label>
+                <div class="form-checks">
+                  <label><input name="isBusinessHours" type="checkbox" /> Business hours</label>
+                  <label><input name="isWeekend" type="checkbox" /> Weekend</label>
+                </div>
+              </div>
+            </details>
+
+            @if (formError()) {
+              <p class="form-error" role="alert">{{ formError() }}</p>
+            }
+
+            @if (analysis(); as result) {
+              <section class="analysis-result" aria-live="polite" aria-label="AI advisory">
+                <div class="analysis-result__heading">
+                  <div><strong>AI advisory</strong><span>Review and adjust before creating</span></div>
+                  <button class="button button--secondary" type="button" (click)="applyAnalysis(severityInput, categoryInput)">Use suggestions</button>
+                </div>
+                <div class="analysis-result__metrics">
+                  <div><span>Suggested severity</span><strong>{{ result.severity.value }} <small>{{ result.severity.confidence === null ? '—' : (result.severity.confidence * 100 | number:'1.0-0') + '%' }}</small></strong></div>
+                  <div><span>Suggested category</span><strong>{{ result.category.value }} <small>{{ result.category.confidence === null ? '—' : (result.category.confidence * 100 | number:'1.0-0') + '%' }}</small></strong></div>
+                  <div><span>Estimated resolution</span><strong>{{ result.resolution_time_hours | number:'1.1-1' }} h</strong></div>
+                </div>
+                <p>Model output is advisory. You can change severity and category before submission.</p>
+              </section>
+            }
+          </div>
+
+          <footer class="create-dialog__footer">
+            <button class="button button--secondary" type="button" (click)="createOpen.set(false)">Cancel</button>
+            <button class="button button--secondary" type="button" [disabled]="analysisLoading() || createLoading()" (click)="analyzeIncident(incidentForm)">
+              {{ analysisLoading() ? 'Analyzing…' : 'Analyze with AI' }}
+            </button>
+            <button class="button" type="submit" [disabled]="createLoading() || analysisLoading()">
+              {{ createLoading() ? 'Creating…' : 'Create incident' }}
+            </button>
+          </footer>
+        </form>
+      </section>
     </div>
   }
 

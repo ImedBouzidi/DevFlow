@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ─────────────────────────────────────────────────────────────────────────────
-# manage-services.sh — Menu to manage DevFlow Spring Boot services (profile=local)
+# manage-services.sh — Menu to manage DevFlow services (profile=local)
 # ─────────────────────────────────────────────────────────────────────────────
 set -u
 
@@ -9,8 +9,24 @@ PID_DIR="$ROOT_DIR/.pids"
 LOG_DIR="$ROOT_DIR/logs"
 mkdir -p "$PID_DIR" "$LOG_DIR"
 
-# name : kind : module : port   (kind: spring | python | keycloak)
+# ── Colors ────────────────────────────────────────────────────────────────────
+RESET="\033[0m"
+BOLD="\033[1m"
+DIM="\033[2m"
+RED="\033[31m"
+GREEN="\033[32m"
+YELLOW="\033[33m"
+BLUE="\033[34m"
+MAGENTA="\033[35m"
+CYAN="\033[36m"
+WHITE="\033[37m"
+BG_BLUE="\033[44m"
+BG_GREEN="\033[42m"
+BG_RED="\033[41m"
+
+# name : kind : module : port   (kind: spring | python | keycloak | angular)
 SERVICES=(
+  "frontend:angular:frontend:4200"
   "discovery-server:spring:discovery-server:8761"
   "api-gateway:spring:api-gateway:9090"
   "auth-register-service:spring:auth-register-service:8082"
@@ -31,10 +47,10 @@ is_running() {
 start_service() {
   local name="$1" kind="$2" module="$3" port="$4"
   if is_running "$name"; then
-    echo "  [!] $name already running (pid $(cat "$(pid_file "$name")"))"
+    echo "  ${YELLOW}[!]${RESET} $name already running (pid $(cat "$(pid_file "$name")"))"
     return
   fi
-  echo "  [*] Starting $name (port $port) ..."
+  echo "  ${CYAN}[*]${RESET} Starting $name (port $port) ..."
   cd "$ROOT_DIR"
   case "$kind" in
     spring)
@@ -49,9 +65,14 @@ start_service() {
     keycloak)
       nohup "$ROOT_DIR/$module/bin/kc.sh" start-dev --http-port=$port > "$(log_file "$name")" 2>&1 &
       ;;
+    angular)
+      cd "$ROOT_DIR/$module"
+      nohup npx ng serve --proxy-config proxy.conf.json > "$(log_file "$name")" 2>&1 &
+      cd "$ROOT_DIR"
+      ;;
   esac
   echo $! > "$(pid_file "$name")"
-  echo "  [+] $name started (pid $!) — log: logs/$name.log"
+  echo "  ${GREEN}[+]${RESET} $name started (pid $!) — log: logs/$name.log"
 }
 
 stop_service() {
@@ -59,14 +80,15 @@ stop_service() {
   if is_running "$name"; then
     local pid
     pid="$(cat "$(pid_file "$name")")"
-    echo "  [*] Stopping $name (pid $pid) ..."
+    echo "  ${CYAN}[*]${RESET} Stopping $name (pid $pid) ..."
     kill "$pid" 2>/dev/null
     case "$kind" in
       spring)   [ -n "$module" ] && pkill -f "spring-boot:run.*$module" 2>/dev/null ;;
       keycloak) pkill -f "kc.sh start-dev" 2>/dev/null; pkill -f "keycloak-21.1.1" 2>/dev/null ;;
       python)   pkill -f "ai-analysis-server.*wsgi.py" 2>/dev/null; pkill -f "wsgi.py" 2>/dev/null ;;
+      angular)  pkill -f "ng serve" 2>/dev/null ;;
     esac
-    # kill the forked java process listening on its port
+    # kill the forked process listening on its port
     if [ -n "$port" ]; then
       local jpid
       jpid="$(lsof -ti :"$port" 2>/dev/null || fuser "$port"/tcp 2>/dev/null)"
@@ -75,22 +97,23 @@ stop_service() {
     sleep 2
     kill -9 "$pid" 2>/dev/null
     rm -f "$(pid_file "$name")"
-    echo "  [+] $name stopped"
+    echo "  ${GREEN}[+]${RESET} $name stopped"
   else
-    echo "  [!] $name is not running"
+    echo "  ${YELLOW}[!]${RESET} $name is not running"
     rm -f "$(pid_file "$name")"
   fi
 }
 
 status_services() {
-  printf "\n  %-25s %-8s %-8s %s\n" "SERVICE" "PORT" "STATUS" "PID"
-  printf "  %-25s %-8s %-8s %s\n" "-------" "----" "------" "---"
+  echo
+  printf "  ${BOLD}%-25s %-8s %-10s %-8s${RESET}\n" "SERVICE" "PORT" "STATUS" "PID"
+  printf "  ${DIM}%-25s %-8s %-10s %-8s${RESET}\n" "─────────────────────────" "────────" "──────────" "────────"
   for entry in "${SERVICES[@]}"; do
     IFS=: read -r name kind module port <<< "$entry"
     if is_running "$name"; then
-      printf "  %-25s %-8s \033[32m%-8s\033[0m %s\n" "$name" "$port" "RUNNING" "$(cat "$(pid_file "$name")")"
+      printf "  %-25s %-8s ${GREEN}%-10s${RESET} %s\n" "$name" "$port" "RUNNING" "$(cat "$(pid_file "$name")")"
     else
-      printf "  %-25s %-8s \033[31m%-8s\033[0m %s\n" "$name" "$port" "STOPPED" "-"
+      printf "  %-25s %-8s ${RED}%-10s${RESET} %s\n" "$name" "$port" "STOPPED" "-"
     fi
   done
   echo
@@ -101,10 +124,18 @@ select_service() {
   local i=1
   for entry in "${SERVICES[@]}"; do
     IFS=: read -r name kind _ port <<< "$entry"
-    echo "  $i) $name"
+    local icon
+    case "$kind" in
+      spring)   icon="${BLUE}◆${RESET}" ;;
+      python)   icon="${YELLOW}◆${RESET}" ;;
+      keycloak) icon="${MAGENTA}◆${RESET}" ;;
+      angular)  icon="${CYAN}◆${RESET}" ;;
+    esac
+    printf "  ${BOLD}%2d)${RESET} %s %s\n" "$i" "$icon" "$name"
     i=$((i + 1))
   done
-  echo "  a) all"
+  echo "  ${BOLD} a)${RESET} ${BOLD}all${RESET}"
+  echo " ────────────────────────────────────────"
   read -rp "  Choice: " CH
   if [ "$CH" = "a" ]; then
     SELECTED="all"
@@ -112,7 +143,7 @@ select_service() {
     SELECTED="${SERVICES[$((CH - 1))]}"
   else
     SELECTED=""
-    echo "  [!] Invalid choice"
+    echo "  ${RED}[!] Invalid choice${RESET}"
   fi
 }
 
@@ -137,7 +168,7 @@ show_logs() {
   if [ "$SELECTED" = "all" ]; then
     for entry in "${SERVICES[@]}"; do
       IFS=: read -r name kind _ port <<< "$entry"
-      echo "===== $name ====="
+      echo "  ${BOLD}===== $name =====${RESET}"
       tail -n 15 "$(log_file "$name")" 2>/dev/null || echo "  (no log yet)"
     done
   else
@@ -146,18 +177,57 @@ show_logs() {
   fi
 }
 
+build_frontend() {
+  echo "  ${CYAN}[*]${RESET} Building frontend ..."
+  cd "$ROOT_DIR/frontend"
+  npx ng build 2>&1
+  local rc=$?
+  cd "$ROOT_DIR"
+  if [ $rc -eq 0 ]; then
+    echo "  ${GREEN}[+]${RESET} Frontend build successful — output: frontend/dist/"
+  else
+    echo "  ${RED}[✗]${RESET} Frontend build failed"
+  fi
+}
+
+open_browser() {
+  local url="http://localhost:4200"
+  echo "  ${CYAN}[*]${RESET} Opening $url ..."
+  if command -v xdg-open &>/dev/null; then
+    xdg-open "$url" &>/dev/null &
+  elif command -v open &>/dev/null; then
+    open "$url" &>/dev/null &
+  else
+    echo "  ${YELLOW}[!]${RESET} Could not detect browser opener. Visit $url manually."
+  fi
+}
+
+# ── Main Menu ─────────────────────────────────────────────────────────────────
 while true; do
-  echo "════════════════════════════════════════"
-  echo "   DevFlow Services Manager (local)"
-  echo "════════════════════════════════════════"
-  echo "  1) Status"
-  echo "  2) Start"
-  echo "  3) Stop"
-  echo "  4) Restart"
-  echo "  5) View logs"
-  echo "  6) Quit"
-  echo "────────────────────────────────────────"
-  read -rp "  Choose: " OPT
+  clear
+  echo
+  echo "  ${BOLD}${BG_BLUE}${WHITE} ╔══════════════════════════════════════════════════╗ ${RESET}"
+  echo "  ${BOLD}${BG_BLUE}${WHITE} ║          DevFlow Services Manager (local)         ║ ${RESET}"
+  echo "  ${BOLD}${BG_BLUE}${WHITE} ╚══════════════════════════════════════════════════╝ ${RESET}"
+  echo
+  echo "  ${BOLD}┌─ Service Control ─────────────────────────────────┐${RESET}"
+  echo "  ${BOLD}│${RESET}  ${GREEN}1)${RESET} Status          ${DIM}— show all service states${RESET}     ${BOLD}│${RESET}"
+  echo "  ${BOLD}│${RESET}  ${GREEN}2)${RESET} Start           ${DIM}— start service(s)${RESET}               ${BOLD}│${RESET}"
+  echo "  ${BOLD}│${RESET}  ${GREEN}3)${RESET} Stop            ${DIM}— stop service(s)${RESET}                ${BOLD}│${RESET}"
+  echo "  ${BOLD}│${RESET}  ${GREEN}4)${RESET} Restart         ${DIM}— restart service(s)${RESET}              ${BOLD}│${RESET}"
+  echo "  ${BOLD}└──────────────────────────────────────────────────┘${RESET}"
+  echo
+  echo "  ${BOLD}┌─ Logs & Build ────────────────────────────────────┐${RESET}"
+  echo "  ${BOLD}│${RESET}  ${CYAN}5)${RESET} View logs       ${DIM}— tail service logs${RESET}            ${BOLD}│${RESET}"
+  echo "  ${BOLD}│${RESET}  ${CYAN}6)${RESET} Build frontend  ${DIM}— ng build (production)${RESET}        ${BOLD}│${RESET}"
+  echo "  ${BOLD}│${RESET}  ${CYAN}7)${RESET} Open in browser ${DIM}— launch frontend at :4200${RESET}       ${BOLD}│${RESET}"
+  echo "  ${BOLD}└──────────────────────────────────────────────────┘${RESET}"
+  echo
+  echo "  ${BOLD}┌─ System ─────────────────────────────────────────┐${RESET}"
+  echo "  ${BOLD}│${RESET}  ${RED}8)${RESET} Quit            ${DIM}— exit the manager${RESET}              ${BOLD}│${RESET}"
+  echo "  ${BOLD}└──────────────────────────────────────────────────┘${RESET}"
+  echo
+  read -rp "  ${BOLD}Choose option:${RESET} " OPT
   case "$OPT" in
     1) status_services ;;
     2) for_each_or_selected start_service ;;
@@ -183,8 +253,18 @@ while true; do
       fi
       ;;
     5) show_logs ;;
-    6) echo "Bye!"; exit 0 ;;
-    *) echo "  [!] Invalid option" ;;
+    6) build_frontend ;;
+    7) open_browser ;;
+    8)
+      echo
+      echo "  ${BOLD}${GREEN}  ✓ Goodbye!${RESET}"
+      echo
+      exit 0
+      ;;
+    *)
+      echo "  ${RED}[!] Invalid option — try again${RESET}"
+      ;;
   esac
   echo
+  read -rp "  ${DIM}Press Enter to continue...${RESET}" _
 done

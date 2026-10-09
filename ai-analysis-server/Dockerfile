@@ -8,8 +8,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     EAGER_LOAD_MODELS=true
 WORKDIR /app
 COPY requirements.txt ./requirements.txt
-RUN pip install --no-cache-dir --upgrade pip \
-    && pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir --timeout=120 --retries=10 -r requirements.txt
 COPY app ./app
 COPY ml-models ./ml-models
 COPY wsgi.py ./wsgi.py

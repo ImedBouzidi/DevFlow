@@ -17,6 +17,8 @@ public interface IncidentRepository extends JpaRepository<Incident, Long> {
 
     Optional<Incident> findByIncidentId(String incidentId);
 
+    Page<Incident> findByAssignedDeveloperIgnoreCase(String assignedDeveloper, Pageable pageable);
+
     Page<Incident> findByStatus(IncidentStatus status, Pageable pageable);
 
     Page<Incident> findBySeverity(IncidentSeverity severity, Pageable pageable);

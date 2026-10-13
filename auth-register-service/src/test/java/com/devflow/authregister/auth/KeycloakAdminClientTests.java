@@ -20,7 +20,7 @@ import org.springframework.http.HttpStatus;
 class KeycloakAdminClientTests {
 
     @Test
-    void createsUsersWithPermanentPasswordAndNoRequiredActions() {
+        void createsVerifiedUsersWithPermanentPasswordAndNoRequiredActions() {
         RestClient.Builder restClientBuilder = RestClient.builder();
         MockRestServiceServer server = MockRestServiceServer.bindTo(restClientBuilder).build();
         KeycloakProperties properties = new KeycloakProperties(
@@ -35,6 +35,7 @@ class KeycloakAdminClientTests {
                         MediaType.APPLICATION_JSON));
         server.expect(requestTo("http://localhost:9091/admin/realms/devflow/users"))
                 .andExpect(method(HttpMethod.POST))
+                .andExpect(jsonPath("$.emailVerified").value(true))
                 .andExpect(jsonPath("$.credentials[0].temporary").value(false))
                 .andExpect(jsonPath("$.requiredActions").isArray())
                 .andExpect(jsonPath("$.requiredActions.length()").value(0))

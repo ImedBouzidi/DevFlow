@@ -10,6 +10,7 @@ import {
   IncidentsApiService
 } from '../../core/api/incidents-api.service';
 import { environment } from '../../../environments/environment';
+import { AuthService } from '../../core/auth/auth.service';
 
 type Severity = 'Critical' | 'High' | 'Medium' | 'Low';
 type IncidentStatus = 'Open' | 'In Progress' | 'Closed';
@@ -37,6 +38,7 @@ interface Incident {
 })
 export class IncidentsComponent {
   private readonly incidentsApi = inject(IncidentsApiService);
+  private readonly auth = inject(AuthService);
   readonly searchTerm = signal('');
   readonly statusFilter = signal('All statuses');
   readonly severityFilter = signal('All severities');
@@ -79,7 +81,8 @@ export class IncidentsComponent {
     this.incidentsLoading.set(true);
     this.incidentsError.set('');
     try {
-      const page = await firstValueFrom(this.incidentsApi.list());
+      const canReviewAll = this.auth.hasAnyRole(['ROLE_MANAGER', 'ROLE_SUPPORT', 'ROLE_ADMIN']);
+      const page = await firstValueFrom(canReviewAll ? this.incidentsApi.list() : this.incidentsApi.listAssignedToMe());
       const incidents = page.content.map((record) => this.toIncident(record, null));
       this.incidents.set(incidents);
       if (!incidents.some((incident) => incident.id === this.selectedId())) {
@@ -199,7 +202,7 @@ export class IncidentsComponent {
 
   private errorMessage(error: unknown, fallback: string): string {
     if (error instanceof HttpErrorResponse && error.status === 403) {
-      return 'Your account cannot create incidents. Sign in with a developer or admin account.';
+      return 'Your account cannot create incidents. Sign in with a support, developer, or admin account.';
     }
     if (error instanceof HttpErrorResponse && error.status === 0) {
       return 'Could not reach the service. Check that the API is running and try again.';

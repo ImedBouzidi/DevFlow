@@ -12,6 +12,7 @@ import com.devflow.incident.dto.UpdateIncidentRequest;
 import com.devflow.incident.exception.IncidentNotFoundException;
 import com.devflow.incident.repository.IncidentRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -35,6 +36,10 @@ public class IncidentService {
 
     public Page<IncidentResponse> findAll(Pageable pageable) {
         return repository.findAll(pageable).map(IncidentResponse::from);
+    }
+
+    public Page<IncidentResponse> findAssignedToDeveloper(String username, Pageable pageable) {
+        return repository.findByAssignedDeveloperIgnoreCase(username, pageable).map(IncidentResponse::from);
     }
 
     public IncidentResponse findByIncidentId(String incidentId) {
@@ -129,9 +134,33 @@ public class IncidentService {
     }
 
     @Transactional
+    public IncidentResponse closeForDeveloper(String incidentId, String username) {
+        Incident incident = getOrThrow(incidentId);
+        requireAssignedDeveloper(incident, username);
+        incident.setStatus(IncidentStatus.CLOSED);
+        incident.setResolvedAt(OffsetDateTime.now());
+        return IncidentResponse.from(repository.save(incident));
+    }
+
+    @Transactional
     public IncidentResponse markInProgress(String incidentId) {
         Incident incident = getOrThrow(incidentId);
         incident.setStatus(IncidentStatus.IN_PROGRESS);
+        return IncidentResponse.from(repository.save(incident));
+    }
+
+    @Transactional
+    public IncidentResponse markInProgressForDeveloper(String incidentId, String username) {
+        Incident incident = getOrThrow(incidentId);
+        requireAssignedDeveloper(incident, username);
+        incident.setStatus(IncidentStatus.IN_PROGRESS);
+        return IncidentResponse.from(repository.save(incident));
+    }
+
+    @Transactional
+    public IncidentResponse assignDeveloper(String incidentId, String developerUsername) {
+        Incident incident = getOrThrow(incidentId);
+        incident.setAssignedDeveloper(developerUsername);
         return IncidentResponse.from(repository.save(incident));
     }
 
@@ -146,5 +175,12 @@ public class IncidentService {
     private Incident getOrThrow(String incidentId) {
         return repository.findByIncidentId(incidentId)
                 .orElseThrow(() -> new IncidentNotFoundException(incidentId));
+    }
+
+    private void requireAssignedDeveloper(Incident incident, String username) {
+        if (username == null || incident.getAssignedDeveloper() == null
+                || !incident.getAssignedDeveloper().equalsIgnoreCase(username)) {
+            throw new AccessDeniedException("Incident is not assigned to this developer");
+        }
     }
 }

@@ -53,7 +53,7 @@ public class KeycloakAdminClient {
                 firstName,
                 lastName,
                 true,
-                false,
+                true,
                 List.of(new KeycloakCredential("password", password, false)),
                 List.of());
 

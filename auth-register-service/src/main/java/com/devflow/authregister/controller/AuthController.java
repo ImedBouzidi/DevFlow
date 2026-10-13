@@ -4,6 +4,7 @@ import java.net.URI;
 import java.util.List;
 
 import com.devflow.authregister.dto.CurrentUserResponse;
+import com.devflow.authregister.dto.DeveloperDirectoryResponse;
 import com.devflow.authregister.dto.ChangePasswordRequest;
 import com.devflow.authregister.dto.AdminCreateUserRequest;
 import com.devflow.authregister.dto.AdminUpdateUserRequest;
@@ -36,6 +37,11 @@ public class AuthController {
     @GetMapping("/users")
     public List<RegisteredUserResponse> users() {
         return registrationService.users();
+    }
+
+    @GetMapping("/developers")
+    public List<DeveloperDirectoryResponse> developers() {
+        return registrationService.developers();
     }
 
     @PostMapping("/users")

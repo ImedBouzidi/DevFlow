@@ -13,6 +13,7 @@ import com.devflow.authregister.dto.AdminCreateUserRequest;
 import com.devflow.authregister.dto.AdminUpdateUserRequest;
 import com.devflow.authregister.dto.ChangePasswordRequest;
 import com.devflow.authregister.dto.CurrentUserResponse;
+import com.devflow.authregister.dto.DeveloperDirectoryResponse;
 import com.devflow.authregister.dto.RegisterRequest;
 import com.devflow.authregister.dto.RegisteredUserResponse;
 import com.devflow.authregister.dto.UpdateCurrentUserRequest;
@@ -64,6 +65,16 @@ public class RegistrationService {
         @Transactional(readOnly = true)
         public List<RegisteredUserResponse> users() {
         return userRepository.findAll().stream().map(this::toRegistrationResponse).toList();
+        }
+
+        @Transactional(readOnly = true)
+        public List<DeveloperDirectoryResponse> developers() {
+        return userRepository.findAll().stream()
+            .filter(AppUser::isEnabled)
+            .filter(user -> user.getRoles().contains(UserRole.ROLE_DEVELOPER))
+            .map(user -> new DeveloperDirectoryResponse(
+                user.getId(), user.getUsername(), user.getFirstName(), user.getLastName()))
+            .toList();
         }
 
         @Transactional

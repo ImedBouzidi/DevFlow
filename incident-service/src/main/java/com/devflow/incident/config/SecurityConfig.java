@@ -41,8 +41,11 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         // Actuator probes accessible without auth
                         .requestMatchers("/actuator/health/**").permitAll()
-                        // Read endpoints for monitoring/support roles
-                        .requestMatchers(HttpMethod.GET, "/api/incidents/**").hasAnyRole("SUPPORT", "MANAGER", "DEVELOPER", "ADMIN")
+                        // Developers can read only their own assignment queue.
+                        .requestMatchers(HttpMethod.GET, "/api/incidents/assigned-to-me").hasRole("DEVELOPER")
+                        // General incident reads are limited to operational roles.
+                        .requestMatchers(HttpMethod.GET, "/api/incidents/**").hasAnyRole("SUPPORT", "MANAGER", "ADMIN")
+                        .requestMatchers(HttpMethod.PATCH, "/api/incidents/*/assignment").hasAnyRole("MANAGER", "ADMIN")
                         // Mutations for developers and admins
                         .requestMatchers(HttpMethod.POST, "/api/incidents").hasAnyRole("DEVELOPER", "ADMIN", "SUPPORT")
                         .requestMatchers(HttpMethod.PUT, "/api/incidents/**").hasAnyRole("DEVELOPER", "ADMIN", "SUPPORT")

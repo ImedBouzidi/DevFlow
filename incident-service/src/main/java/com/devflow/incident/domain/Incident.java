@@ -67,6 +67,9 @@ public class Incident {
     @Column(nullable = false, length = 20)
     private IncidentOrigin origin;
 
+    @Column(name = "assigned_developer", length = 100)
+    private String assignedDeveloper;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private OffsetDateTime createdAt;

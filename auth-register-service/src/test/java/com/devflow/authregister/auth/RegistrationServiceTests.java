@@ -10,6 +10,7 @@ import com.devflow.authregister.config.KeycloakProperties;
 import com.devflow.authregister.dto.AdminCreateUserRequest;
 import com.devflow.authregister.dto.ChangePasswordRequest;
 import com.devflow.authregister.dto.CurrentUserResponse;
+import com.devflow.authregister.dto.DeveloperDirectoryResponse;
 import com.devflow.authregister.dto.RegisterRequest;
 import com.devflow.authregister.dto.RegisteredUserResponse;
 import com.devflow.authregister.dto.UpdateCurrentUserRequest;
@@ -131,6 +132,27 @@ class RegistrationServiceTests {
                 assertThat(persistedUser.getValue().getKeycloakUserId()).isEqualTo("keycloak-admin-user-1");
                 assertThat(persistedUser.getValue().getUsername()).isEqualTo("new.manager");
                 assertThat(persistedUser.getValue().getRoles()).containsExactlyInAnyOrderElementsOf(roles);
+        }
+
+        @Test
+        void listsOnlyEnabledDevelopersInTheAssignmentDirectory() {
+                AppUser developer = AppUser.create(
+                                "developer-id", "dev.one", "dev.one@devflow.local", "Dev", "One",
+                                UserRole.ROLE_DEVELOPER);
+                AppUser support = AppUser.create(
+                                "support-id", "support.one", "support.one@devflow.local", "Support", "One",
+                                UserRole.ROLE_SUPPORT);
+                AppUser disabledDeveloper = AppUser.create(
+                                "disabled-developer-id", "dev.disabled", "dev.disabled@devflow.local", "Disabled", "Dev",
+                                UserRole.ROLE_DEVELOPER);
+                disabledDeveloper.updateProfile(
+                                "dev.disabled@devflow.local", "Disabled", "Dev", Set.of(UserRole.ROLE_DEVELOPER), false);
+                when(userRepository.findAll()).thenReturn(List.of(developer, support, disabledDeveloper));
+
+                List<DeveloperDirectoryResponse> developers = registrationService.developers();
+
+                assertThat(developers).containsExactly(new DeveloperDirectoryResponse(
+                                developer.getId(), "dev.one", "Dev", "One"));
         }
 
         @Test

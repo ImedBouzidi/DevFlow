@@ -25,6 +25,13 @@ export interface ManagedUser {
   createdAt: string;
 }
 
+export interface DeveloperDirectoryEntry {
+  id: string;
+  username: string;
+  firstName: string;
+  lastName: string;
+}
+
 export interface CreateManagedUser {
   username: string;
   email: string;
@@ -49,6 +56,10 @@ export class UserManagementApiService {
 
   list(): Observable<ManagedUser[]> {
     return this.http.get<ManagedUser[]>(this.endpoint);
+  }
+
+  developers(): Observable<DeveloperDirectoryEntry[]> {
+    return this.http.get<DeveloperDirectoryEntry[]>(`${environment.apiBaseUrl}/api/auth/developers`);
   }
 
   create(request: CreateManagedUser): Observable<ManagedUser> {

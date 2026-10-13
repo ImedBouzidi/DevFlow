@@ -2,7 +2,10 @@ package com.devflow.incident.exception;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.validation.FieldError;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -13,6 +16,8 @@ import java.util.stream.Collectors;
 
 @RestControllerAdvice
 public class ApiExceptionHandler {
+
+    private static final Logger logger = LoggerFactory.getLogger(ApiExceptionHandler.class);
 
     @ExceptionHandler(IncidentNotFoundException.class)
     ProblemDetail handleNotFound(IncidentNotFoundException ex) {
@@ -33,8 +38,17 @@ public class ApiExceptionHandler {
         return pd;
     }
 
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    ProblemDetail handleUnreadableBody(HttpMessageNotReadableException ex) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST,
+                "Request body contains malformed JSON or an invalid value");
+        pd.setType(URI.create("/errors/invalid-request-body"));
+        return pd;
+    }
+
     @ExceptionHandler(Exception.class)
     ProblemDetail handleGeneric(Exception ex) {
+        logger.error("Unhandled incident API error", ex);
         ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.INTERNAL_SERVER_ERROR,
                 "An unexpected error occurred");
         pd.setType(URI.create("/errors/internal"));

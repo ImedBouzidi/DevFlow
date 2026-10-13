@@ -6,14 +6,6 @@
       <p>Here is what needs attention across your engineering organization.</p>
     </div>
     <div class="heading-actions">
-      <button class="filter-button" type="button">
-        <svg viewBox="0 0 18 18" aria-hidden="true">
-          <rect x="3" y="4" width="12" height="11" rx="2" fill="none" stroke="currentColor" stroke-width="1.4" />
-          <path d="M6 2v4M12 2v4M3 8h12" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" />
-        </svg>
-        Last 7 days
-        <svg class="chevron" viewBox="0 0 16 16" aria-hidden="true"><path d="m4 6 4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.3" /></svg>
-      </button>
       <a class="button" routerLink="/incidents">
         <svg viewBox="0 0 18 18" aria-hidden="true"><path d="M9 3v12M3 9h12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" /></svg>
         View incidents
@@ -21,13 +13,11 @@
     </div>
   </header>
 
-  <div class="sample-note" role="note">
-    <span class="sample-note__dot"></span>
-    Dashboard values are representative UI data. Connect the incident API in the next service slice.
-  </div>
+  @if (loading()) { <p role="status">Loading incident data…</p> }
+  @if (loadError()) { <p class="form-error" role="alert">{{ loadError() }} <button type="button" (click)="loadIncidents()">Retry</button></p> }
 
   <section class="metrics-grid" aria-label="Incident key performance indicators">
-    @for (metric of metrics; track metric.label) {
+    @for (metric of metrics(); track metric.label) {
       <article class="metric-card page-card">
         <div class="metric-card__top">
           <span [class]="'metric-icon metric-icon--' + metric.tone" aria-hidden="true">
@@ -56,10 +46,7 @@
         </div>
         <span class="metric-card__label">{{ metric.label }}</span>
         <strong class="metric-card__value">{{ metric.value }}</strong>
-        <span [class]="'metric-card__delta metric-card__delta--' + metric.trend">
-          @if (metric.trend === 'down') { ↓ } @else if (metric.trend === 'up') { ↑ } @else { ↘ }
-          {{ metric.delta }}
-        </span>
+        <span class="metric-card__delta">From saved incident records</span>
       </article>
     }
   </section>
@@ -70,10 +57,10 @@
         <article class="chart-card page-card">
           <div class="card-heading">
             <div><h2>Incidents by severity</h2><p>Distribution over the selected period</p></div>
-            <span class="card-total">128 total</span>
+            <span class="card-total">{{ incidents().length }} total</span>
           </div>
           <div class="severity-chart">
-            @for (item of severity; track item.label) {
+            @for (item of severity(); track item.label) {
               <div class="severity-row">
                 <span>{{ item.label }}</span>
                 <div class="severity-track"><span [style.width.%]="item.width" [style.background]="item.color"></span></div>
@@ -81,7 +68,7 @@
               </div>
             }
           </div>
-          <div class="chart-axis" aria-hidden="true"><span>0</span><span>20</span><span>40</span><span>60</span></div>
+          <div class="chart-axis" aria-hidden="true"><span>0%</span><span>25%</span><span>50%</span><span>75%</span><span>100%</span></div>
         </article>
 
         <article class="chart-card page-card">
@@ -90,14 +77,15 @@
             <button type="button" aria-label="Chart options">•••</button>
           </div>
           <div class="service-chart">
-            <div class="donut" role="img" aria-label="32 percent checkout, 28 percent payment, 20 percent auth, 20 percent other">
-              <div><strong>128</strong><span>Total</span></div>
+            <div class="donut" role="img" aria-label="Incident counts by service" [style.background]="serviceChartBackground()">
+              <div><strong>{{ incidents().length }}</strong><span>Total</span></div>
             </div>
             <ul>
-              <li><span class="legend legend--blue"></span><span>Checkout Service</span><strong>32 <small>25%</small></strong></li>
-              <li><span class="legend legend--teal"></span><span>Payment Service</span><strong>28 <small>22%</small></strong></li>
-              <li><span class="legend legend--purple"></span><span>Auth Service</span><strong>20 <small>16%</small></strong></li>
-              <li><span class="legend legend--gray"></span><span>Other services</span><strong>48 <small>37%</small></strong></li>
+              @for (service of services(); track service.name) {
+                <li><span class="legend legend--blue"></span><span>{{ service.name }}</span><strong>{{ service.count }} <small>{{ service.percentage }}%</small></strong></li>
+              } @empty {
+                <li>No service data</li>
+              }
             </ul>
           </div>
         </article>
@@ -114,14 +102,16 @@
               <tr><th>Incident</th><th>Service</th><th>Severity</th><th>Status</th><th>Age</th></tr>
             </thead>
             <tbody>
-              @for (incident of recentIncidents; track incident.id) {
+              @for (incident of recentIncidents(); track incident.incidentId) {
                 <tr>
-                  <td><a routerLink="/incidents"><strong>{{ incident.id }}</strong><span>{{ incident.title }}</span></a></td>
+                  <td><a routerLink="/incidents"><strong>{{ incident.incidentId }}</strong><span>{{ incident.title }}</span></a></td>
                   <td>{{ incident.service }}</td>
-                  <td><span [class]="'status-pill status-pill--' + incident.severity.toLowerCase()">{{ incident.severity }}</span></td>
-                  <td><span [class]="'status-pill status-pill--' + incident.status.toLowerCase()">{{ incident.status }}</span></td>
-                  <td>{{ incident.age }}</td>
+                  <td><span [class]="'status-pill status-pill--' + incident.severity.toLowerCase()">{{ displayEnum(incident.severity) }}</span></td>
+                  <td><span [class]="'status-pill status-pill--' + statusClass(incident.status)">{{ displayEnum(incident.status) }}</span></td>
+                  <td>{{ incident.createdAt | date:'short' }}</td>
                 </tr>
+              } @empty {
+                <tr><td colspan="5">No critical incidents in the incident database.</td></tr>
               }
             </tbody>
           </table>
@@ -136,27 +126,11 @@
       </div>
 
       <article class="insight-card page-card insight-card--warning">
-        <div class="insight-card__icon" aria-hidden="true">↗</div>
-        <span class="insight-card__label">Error-rate spike</span>
-        <h3>Checkout errors increased by 150%</h3>
-        <p>Errors rose over two hours. Check recent deployments and downstream dependencies.</p>
-        <a routerLink="/incidents">View analysis <span aria-hidden="true">→</span></a>
-      </article>
-
-      <article class="insight-card page-card insight-card--teal">
-        <div class="insight-card__icon" aria-hidden="true">✓</div>
-        <span class="insight-card__label">Resolution recommendation</span>
-        <h3>Restart the payment worker pool</h3>
-        <p>Similar incidents were resolved by restarting the payment worker after a memory leak.</p>
-        <a routerLink="/incidents">See suggestion <span aria-hidden="true">→</span></a>
-      </article>
-
-      <article class="insight-card page-card insight-card--purple">
-        <div class="insight-card__icon" aria-hidden="true">⌁</div>
-        <span class="insight-card__label">Improving MTTR</span>
-        <h3>Runbooks shortened resolution time</h3>
-        <p>Teams using runbooks have 22% lower MTTR. Consider assigning one to the inventory service.</p>
-        <a routerLink="/incidents">Explore runbooks <span aria-hidden="true">→</span></a>
+        <div class="insight-card__icon" aria-hidden="true">✦</div>
+        <span class="insight-card__label">Saved incidents</span>
+        <h3>{{ incidents().length }} incident records</h3>
+        <p>AI advisory results appear with each incident after analysis.</p>
+        <a routerLink="/incidents">Open incident queue <span aria-hidden="true">→</span></a>
       </article>
 
       <div class="human-loop page-card">

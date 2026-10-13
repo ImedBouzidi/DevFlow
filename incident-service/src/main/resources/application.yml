@@ -15,7 +15,7 @@ spring:
   lifecycle:
     timeout-per-shutdown-phase: 20s
   datasource:
-    url: ${DB_URL:jdbc:postgresql://localhost:5432/devflow}
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/devflow-incident}
     username: ${DB_USERNAME:imed}
     password: ${DB_PASSWORD:admin}
     hikari:
@@ -24,14 +24,12 @@ spring:
   jpa:
     open-in-view: false
     hibernate:
-      ddl-auto: validate
+      ddl-auto: update
     properties:
       hibernate:
         jdbc:
           time_zone: UTC
         format_sql: false
-  flyway:
-    enabled: true
   security:
     oauth2:
       resourceserver:

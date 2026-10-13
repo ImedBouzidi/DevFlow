@@ -1,47 +1,52 @@
-import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { DatePipe } from '@angular/common';
 import { RouterLink } from '@angular/router';
+import { firstValueFrom } from 'rxjs';
 
 import { AuthService } from '../../core/auth/auth.service';
-
-interface AdminMetric {
-    label: string;
-    value: string;
-    detail: string;
-    status: 'healthy' | 'warning' | 'info';
-    icon: string;
-}
-
-interface ServiceStatus {
-    name: string;
-    port: number;
-    status: 'ONLINE' | 'DEGRADED' | 'OFFLINE';
-    uptime: string;
-    latency: string;
-}
+import { IncidentRecord, IncidentsApiService } from '../../core/api/incidents-api.service';
+import { ManagedUser, UserManagementApiService } from '../../core/api/user-management-api.service';
 
 @Component({
     selector: 'app-admin-dashboard',
-    imports: [RouterLink],
+    imports: [DatePipe, RouterLink],
     templateUrl: './admin-dashboard.component.html',
     styleUrl: './admin-dashboard.component.scss',
     changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class AdminDashboardComponent {
     readonly authService = inject(AuthService);
+    private readonly incidentApi = inject(IncidentsApiService);
+    private readonly userApi = inject(UserManagementApiService);
+    readonly users = signal<ManagedUser[]>([]);
+    readonly incidents = signal<IncidentRecord[]>([]);
+    readonly loading = signal(true);
+    readonly loadError = signal('');
+    readonly metrics = computed(() => [
+        { label: 'Registered users', value: this.users().length, detail: 'Accounts returned by user management' },
+        { label: 'Enabled users', value: this.users().filter((user) => user.enabled).length, detail: 'Enabled accounts' },
+        { label: 'Incident records', value: this.incidents().length, detail: 'Persisted incident records' },
+        { label: 'Open incidents', value: this.incidents().filter((incident) => incident.status !== 'CLOSED').length, detail: 'Not closed' }
+    ]);
 
-    readonly adminMetrics: readonly AdminMetric[] = [
-        { label: 'Registered Users', value: '42', detail: '8 new this week', status: 'healthy', icon: 'users' },
-        { label: 'Active Services', value: '5 / 5', detail: '100% operational', status: 'healthy', icon: 'services' },
-        { label: 'Keycloak Realm', value: 'devflow', detail: 'OIDC S256 Active', status: 'info', icon: 'security' },
-        { label: 'Platform Uptime', value: '99.98%', detail: 'Last 30 days', status: 'healthy', icon: 'uptime' }
-    ];
+    constructor() {
+        void this.loadData();
+    }
 
-    readonly services: readonly ServiceStatus[] = [
-        { name: 'Discovery Server (Eureka)', port: 8761, status: 'ONLINE', uptime: '14d 6h', latency: '4ms' },
-        { name: 'API Gateway', port: 9090, status: 'ONLINE', uptime: '14d 6h', latency: '12ms' },
-        { name: 'Auth Register Service', port: 8082, status: 'ONLINE', uptime: '3d 12h', latency: '18ms' },
-        { name: 'Incident Service', port: 8083, status: 'ONLINE', uptime: '3d 12h', latency: '15ms' },
-        { name: 'Keycloak IAM Server', port: 9091, status: 'ONLINE', uptime: '14d 6h', latency: '22ms' }
-    ];
-
+    async loadData(): Promise<void> {
+        this.loading.set(true);
+        this.loadError.set('');
+        try {
+            const [users, incidentPage] = await Promise.all([
+                firstValueFrom(this.userApi.list()),
+                firstValueFrom(this.incidentApi.list())
+            ]);
+            this.users.set(users);
+            this.incidents.set(incidentPage.content);
+        } catch {
+            this.loadError.set('Account or incident data could not be loaded.');
+        } finally {
+            this.loading.set(false);
+        }
+    }
 }

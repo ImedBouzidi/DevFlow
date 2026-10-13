@@ -1,47 +1,111 @@
-import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { DatePipe } from '@angular/common';
 import { RouterLink } from '@angular/router';
+import { firstValueFrom } from 'rxjs';
 
 import { AuthService } from '../../core/auth/auth.service';
+import { IncidentRecord, IncidentsApiService } from '../../core/api/incidents-api.service';
 
 interface MetricCard {
   label: string;
-  value: string;
-  delta: string;
-  trend: 'up' | 'down' | 'neutral';
+  value: number;
   icon: 'incidents' | 'open' | 'critical' | 'resolved' | 'time' | 'mttr';
   tone: string;
 }
 
+const SEVERITY_COLORS: Record<string, string> = {
+  CRITICAL: '#e5484d',
+  HIGH: '#f28a30',
+  MEDIUM: '#377de5',
+  LOW: '#36a69b'
+};
+
 @Component({
   selector: 'app-dashboard',
-  imports: [RouterLink],
+  imports: [DatePipe, RouterLink],
   templateUrl: './dashboard.component.html',
   styleUrl: './dashboard.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class DashboardComponent {
   readonly authService = inject(AuthService);
+  private readonly incidentsApi = inject(IncidentsApiService);
+  readonly incidents = signal<IncidentRecord[]>([]);
+  readonly loading = signal(true);
+  readonly loadError = signal('');
+  readonly metrics = computed<MetricCard[]>(() => {
+    const incidents = this.incidents();
+    return [
+      { label: 'Total incidents', value: incidents.length, icon: 'incidents', tone: 'blue' },
+      { label: 'Active incidents', value: incidents.filter((incident) => incident.status !== 'CLOSED').length, icon: 'open', tone: 'blue' },
+      { label: 'Critical incidents', value: incidents.filter((incident) => incident.severity === 'CRITICAL').length, icon: 'critical', tone: 'red' },
+      { label: 'Closed incidents', value: incidents.filter((incident) => incident.status === 'CLOSED').length, icon: 'resolved', tone: 'green' }
+    ];
+  });
+  readonly severity = computed(() => ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'].map((severity) => {
+    const count = this.incidents().filter((incident) => incident.severity === severity).length;
+    const total = this.incidents().length;
+    return {
+      label: this.displayEnum(severity),
+      count,
+      width: total ? Math.round((count / total) * 100) : 0,
+      color: SEVERITY_COLORS[severity]
+    };
+  }));
+  readonly services = computed(() => {
+    const counts = new Map<string, number>();
+    for (const incident of this.incidents()) {
+      counts.set(incident.service, (counts.get(incident.service) ?? 0) + 1);
+    }
+    return [...counts.entries()]
+      .sort((left, right) => right[1] - left[1])
+      .slice(0, 4)
+      .map(([name, count]) => ({
+        name,
+        count,
+        percentage: this.incidents().length ? Math.round((count / this.incidents().length) * 100) : 0
+      }));
+  });
+  readonly serviceChartBackground = computed(() => {
+    const total = this.incidents().length;
+    if (!total) return 'conic-gradient(#d9dee7 0% 100%)';
+    const colors = ['#3d7eea', '#34a69d', '#8c6ade', '#d8912e'];
+    let position = 0;
+    const segments = this.services().map((service, index) => {
+      const end = position + (service.count / total) * 100;
+      const segment = `${colors[index]} ${position}% ${end}%`;
+      position = end;
+      return segment;
+    });
+    if (position < 100) segments.push(`#d9dee7 ${position}% 100%`);
+    return `conic-gradient(${segments.join(', ')})`;
+  });
+  readonly recentIncidents = computed(() => this.incidents()
+    .filter((incident) => incident.severity === 'CRITICAL')
+    .slice(0, 5));
 
-  readonly metrics: readonly MetricCard[] = [
-    { label: 'Total incidents', value: '128', delta: '12% vs last 7 days', trend: 'up', icon: 'incidents', tone: 'blue' },
-    { label: 'Open incidents', value: '23', delta: '8% vs last 7 days', trend: 'down', icon: 'open', tone: 'blue' },
-    { label: 'Critical', value: '4', delta: '20% vs last 7 days', trend: 'up', icon: 'critical', tone: 'red' },
-    { label: 'Resolved today', value: '9', delta: '28% vs yesterday', trend: 'up', icon: 'resolved', tone: 'green' },
-    { label: 'Avg resolution time', value: '2.4h', delta: '15% faster', trend: 'neutral', icon: 'time', tone: 'teal' },
-    { label: 'MTTR', value: '3.7h', delta: '10% improvement', trend: 'down', icon: 'mttr', tone: 'purple' }
-  ];
+  constructor() {
+    void this.loadIncidents();
+  }
 
-  readonly severity = [
-    { label: 'Critical', count: 4, width: 8, color: '#e5484d' },
-    { label: 'High', count: 19, width: 25, color: '#f28a30' },
-    { label: 'Medium', count: 52, width: 67, color: '#377de5' },
-    { label: 'Low', count: 53, width: 69, color: '#36a69b' }
-  ];
+  async loadIncidents(): Promise<void> {
+    this.loading.set(true);
+    this.loadError.set('');
+    try {
+      const page = await firstValueFrom(this.incidentsApi.list());
+      this.incidents.set(page.content);
+    } catch {
+      this.loadError.set('Incident data could not be loaded.');
+    } finally {
+      this.loading.set(false);
+    }
+  }
 
-  readonly recentIncidents = [
-    { id: 'INC-1248', title: 'Checkout failing with 500 errors', service: 'Checkout Service', severity: 'Critical', status: 'Open', age: '1h 12m' },
-    { id: 'INC-1247', title: 'Payment gateway timeout', service: 'Payment Service', severity: 'Critical', status: 'Open', age: '2h 34m' },
-    { id: 'INC-1245', title: 'Auth service high error rate', service: 'Auth Service', severity: 'High', status: 'Investigating', age: '3h 45m' },
-    { id: 'INC-1243', title: 'Inventory sync failing', service: 'Inventory Service', severity: 'High', status: 'Investigating', age: '5h 20m' }
-  ];
+  displayEnum(value: string): string {
+    return value.toLowerCase().replaceAll('_', ' ').replace(/\b\w/g, (letter) => letter.toUpperCase());
+  }
+
+  statusClass(status: string): string {
+    return status.toLowerCase().replaceAll('_', '-');
+  }
 }

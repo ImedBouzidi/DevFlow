@@ -16,17 +16,19 @@
         </div>
     </header>
 
-    <section class="admin-metrics-grid" aria-label="System key performance indicators">
-        @for (metric of adminMetrics; track metric.label) {
+    @if (loading()) { <p role="status">Loading account and incident data…</p> }
+    @if (loadError()) { <p class="form-error" role="alert">{{ loadError() }} <button type="button" (click)="loadData()">Retry</button></p> }
+
+    <section class="admin-metrics-grid" aria-label="Account and incident counts">
+        @for (metric of metrics(); track metric.label) {
         <article class="metric-card page-card">
             <div class="metric-card__top">
-                <span class="metric-icon metric-icon--blue">
+                <span class="metric-icon metric-icon--blue" aria-hidden="true">
                     <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5">
                         <rect x="3" y="3" width="14" height="14" rx="2" />
                         <path d="M7 10h6M10 7v6" stroke-linecap="round" />
                     </svg>
                 </span>
-                <span class="metric-status-dot"></span>
             </div>
             <span class="metric-card__label">{{ metric.label }}</span>
             <strong class="metric-card__value">{{ metric.value }}</strong>
@@ -40,34 +42,34 @@
             <section class="page-card">
                 <div class="card-heading">
                     <div>
-                        <h2>Microservice Architecture Status</h2>
-                        <p>Real-time health and registration of registered Spring Cloud & IAM services</p>
+                        <h2>Recent incident records</h2>
+                        <p>Incidents currently persisted by the incident service</p>
                     </div>
-                    <span class="status-pill status-pill--online">All Systems Operational</span>
+                    <a routerLink="/incidents">Open queue</a>
                 </div>
 
                 <div class="table-wrap">
                     <table>
                         <thead>
                             <tr>
-                                <th>Service Name</th>
-                                <th>Port</th>
+                                <th>Incident</th>
+                                <th>Service</th>
+                                <th>Severity</th>
                                 <th>Status</th>
-                                <th>Uptime</th>
-                                <th>Latency</th>
+                                <th>Created</th>
                             </tr>
                         </thead>
                         <tbody>
-                            @for (svc of services; track svc.name) {
+                            @for (incident of incidents().slice(0, 8); track incident.incidentId) {
                             <tr>
-                                <td><strong>{{ svc.name }}</strong></td>
-                                <td><code>:{{ svc.port }}</code></td>
-                                <td>
-                                    <span class="status-pill status-pill--online">{{ svc.status }}</span>
-                                </td>
-                                <td>{{ svc.uptime }}</td>
-                                <td>{{ svc.latency }}</td>
+                                <td><strong>{{ incident.incidentId }}</strong> {{ incident.title }}</td>
+                                <td>{{ incident.service }}</td>
+                                <td>{{ incident.severity }}</td>
+                                <td>{{ incident.status }}</td>
+                                <td>{{ incident.createdAt | date:'short' }}</td>
                             </tr>
+                            } @empty {
+                            <tr><td colspan="5">No incident records found.</td></tr>
                             }
                         </tbody>
                     </table>
@@ -78,30 +80,12 @@
 
         <aside class="admin-sidebar" aria-label="Admin quick actions">
             <article class="page-card admin-quick-card">
-                <h3>Admin Quick Actions</h3>
+                <h3>Administration</h3>
+                <p>Signed in as {{ authService.displayName() }}.</p>
                 <div class="action-buttons">
-                    <button class="button button--block" type="button">Manage Keycloak Realm</button>
-                    <button class="button button--block button--secondary" type="button">Trigger Security Audit</button>
-                    <button class="button button--block button--secondary" type="button">Clear Redis Cache</button>
+                    <a class="button button--block" routerLink="/user-management">Manage accounts</a>
+                    <a class="button button--block button--secondary" routerLink="/incidents">Review incidents</a>
                 </div>
-            </article>
-
-            <article class="page-card audit-card">
-                <h3>Audit Log Stream</h3>
-                <ul class="audit-list">
-                    <li>
-                        <span class="audit-time">19:42</span>
-                        <span>Admin session initialized for {{ authService.displayName() }}</span>
-                    </li>
-                    <li>
-                        <span class="audit-time">19:30</span>
-                        <span>OAuth2 JWT issuer validation succeeded</span>
-                    </li>
-                    <li>
-                        <span class="audit-time">19:15</span>
-                        <span>Auth Register Service health probe: OK</span>
-                    </li>
-                </ul>
             </article>
         </aside>
     </div>

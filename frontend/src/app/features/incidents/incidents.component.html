@@ -41,9 +41,9 @@
               <label class="form-field">
                 <span>Environment <b>*</b></span>
                 <select name="environment" required>
-                  <option value="production">Production</option>
-                  <option value="staging">Staging</option>
-                  <option value="development">Development</option>
+                  <option value="PRODUCTION">Production</option>
+                  <option value="STAGING">Staging</option>
+                  <option value="DEVELOPMENT">Development</option>
                 </select>
               </label>
               <label class="form-field">
@@ -168,9 +168,7 @@
         <option>All statuses</option>
         <option>Open</option>
         <option>In Progress</option>
-        <option>Investigating</option>
-        <option>Resolved</option>
-        <option>Blocked</option>
+        <option>Closed</option>
       </select>
     </div>
 
@@ -192,7 +190,7 @@
 
   <div class="results-summary">
     <span><strong>{{ filteredIncidents().length }}</strong> incidents</span>
-    <span>Representative data · Last updated 2 min ago</span>
+    <span>Live incident records</span>
   </div>
 
   <div class="incidents-layout">
@@ -209,6 +207,11 @@
             </tr>
           </thead>
           <tbody>
+            @if (incidentsLoading()) {
+              <tr><td colspan="5">Loading incidents…</td></tr>
+            } @else if (incidentsError()) {
+              <tr><td colspan="5"><p class="form-error" role="alert">{{ incidentsError() }}</p><button class="button button--secondary" type="button" (click)="loadIncidents()">Retry</button></td></tr>
+            } @else {
             @for (incident of filteredIncidents(); track incident.id) {
               <tr
                 [class.selected]="selectedId() === incident.id"
@@ -235,13 +238,16 @@
                 <td colspan="5">
                   <div class="empty-state">
                     <div>
-                      <strong>No incidents match these filters</strong>
-                      <p>Try a different query or clear the active filters.</p>
-                      <button class="button button--secondary" type="button" (click)="clearFilters()">Clear filters</button>
+                      <strong>{{ incidents().length ? 'No incidents match these filters' : 'No incidents yet' }}</strong>
+                      <p>{{ incidents().length ? 'Try a different query or clear the active filters.' : 'Create an incident to see it here.' }}</p>
+                      @if (incidents().length) {
+                        <button class="button button--secondary" type="button" (click)="clearFilters()">Clear filters</button>
+                      }
                     </div>
                   </div>
                 </td>
               </tr>
+            }
             }
           </tbody>
         </table>
@@ -264,35 +270,24 @@
         <div class="metadata-grid">
           <div><span>Service</span><strong>{{ incident.service }}</strong></div>
           <div><span>Environment</span><strong>{{ incident.environment }}</strong></div>
-          <div><span>Reporter</span><strong>{{ incident.reporter }}</strong></div>
-          <div><span>Assignee</span><strong>{{ incident.assignee }}</strong></div>
           <div class="metadata-grid__full"><span>Created</span><strong>{{ incident.created }}</strong></div>
         </div>
 
         <section class="ai-panel" aria-labelledby="ai-preview-title">
           <div class="ai-panel__heading">
             <span aria-hidden="true">✦</span>
-            <div><strong id="ai-preview-title">AI incident analysis</strong><small>Advisory preview</small></div>
-            <span class="confidence">{{ incident.confidence }}%</span>
+            <div><strong id="ai-preview-title">AI incident analysis</strong><small>Advisory prediction</small></div>
           </div>
-          <div class="confidence-track"><span [style.width.%]="incident.confidence"></span></div>
-          <dl>
-            <div><dt>Recommended category</dt><dd>{{ incident.category }}</dd></div>
-            <div><dt>Confidence</dt><dd>{{ incident.confidence }}%</dd></div>
-          </dl>
-          <p>{{ incident.aiSummary }}</p>
+          @if (incident.analysis; as advice) {
+            <dl>
+              <div><dt>Suggested severity</dt><dd>{{ advice.severity.value }}@if (advice.severity.confidence !== null) { ({{ advice.severity.confidence * 100 | number:'1.0-0' }}%) }</dd></div>
+              <div><dt>Suggested category</dt><dd>{{ advice.category.value }}@if (advice.category.confidence !== null) { ({{ advice.category.confidence * 100 | number:'1.0-0' }}%) }</dd></div>
+              <div><dt>Estimated resolution</dt><dd>{{ advice.resolution_time_hours | number:'1.1-1' }} h</dd></div>
+            </dl>
+          } @else {
+            <p>AI advice is unavailable for this incident.</p>
+          }
         </section>
-
-        <button class="similar-link" type="button">
-          <span class="similar-link__icon" aria-hidden="true">⌘</span>
-          <span><strong>{{ incident.similar }} similar incidents</strong><small>Based on recent resolved cases</small></span>
-          <span aria-hidden="true">→</span>
-        </button>
-
-        <div class="preview__actions">
-          <button class="button button--secondary" type="button">Add comment</button>
-          <button class="button" type="button">View full incident <span aria-hidden="true">→</span></button>
-        </div>
 
         <p class="advisory-note">AI output is advisory. An authorized engineer validates and applies actions.</p>
       </aside>

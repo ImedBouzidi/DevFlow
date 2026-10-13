@@ -1,12 +1,18 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { DecimalPipe } from '@angular/common';
-import { HttpClient, HttpErrorResponse } from '@angular/common/http';
+import { HttpErrorResponse } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 
+import {
+  CreateIncidentRequest,
+  IncidentAnalysis,
+  IncidentRecord,
+  IncidentsApiService
+} from '../../core/api/incidents-api.service';
 import { environment } from '../../../environments/environment';
 
 type Severity = 'Critical' | 'High' | 'Medium' | 'Low';
-type IncidentStatus = 'Open' | 'In Progress' | 'Investigating' | 'Resolved' | 'Blocked';
+type IncidentStatus = 'Open' | 'In Progress' | 'Closed';
 
 interface Incident {
   id: string;
@@ -16,30 +22,10 @@ interface Incident {
   environment: string;
   severity: Severity;
   status: IncidentStatus;
-  reporter: string;
-  assignee: string;
   created: string;
   age: string;
-  confidence: number;
+  analysis: IncidentAnalysis | null;
   category: string;
-  aiSummary: string;
-  similar: number;
-}
-
-interface IncidentAnalysis {
-  severity: { value: string; confidence: number | null };
-  category: { value: string; confidence: number | null };
-  resolution_time_hours: number;
-}
-
-interface CreatedIncident {
-  incidentId: string;
-  title: string;
-  description: string;
-  severity: string;
-  category: string;
-  service: string;
-  environment: string;
 }
 
 @Component({
@@ -50,131 +36,30 @@ interface CreatedIncident {
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class IncidentsComponent {
-  private readonly http = inject(HttpClient);
+  private readonly incidentsApi = inject(IncidentsApiService);
   readonly searchTerm = signal('');
   readonly statusFilter = signal('All statuses');
   readonly severityFilter = signal('All severities');
-  readonly selectedId = signal('INC-1042');
+  readonly selectedId = signal('');
   readonly createOpen = signal(false);
   readonly analysis = signal<IncidentAnalysis | null>(null);
   readonly analysisLoading = signal(false);
   readonly createLoading = signal(false);
   readonly formError = signal('');
-  readonly createdIncidents = signal<Incident[]>([]);
+  readonly incidents = signal<Incident[]>([]);
+  readonly incidentsLoading = signal(false);
+  readonly incidentsError = signal('');
 
-  readonly allIncidents = computed(() => [...this.createdIncidents(), ...this.incidents]);
-
-  readonly incidents: readonly Incident[] = [
-    {
-      id: 'INC-1042',
-      title: 'Payment service failing with 500 errors',
-      description: 'The payment processing service is returning 500 errors for POST /charges requests. Impacting checkout flow for all customers using credit cards.',
-      service: 'Payments',
-      environment: 'production',
-      severity: 'Critical',
-      status: 'In Progress',
-      reporter: 'Jordan Lee',
-      assignee: 'Maya Chen',
-      created: 'May 24, 2025 · 10:21 AM',
-      age: '10m ago',
-      confidence: 92,
-      category: 'Payment Processing',
-      aiSummary: 'Error rate began rising immediately after the payment gateway deployment. Downstream authorization latency and the new retry policy are the strongest correlated signals.',
-      similar: 3
-    },
-    {
-      id: 'INC-1041',
-      title: 'Checkout latency spiking above 2 seconds',
-      description: 'Checkout p95 latency is above the two-second objective during peak traffic windows.',
-      service: 'Checkout',
-      environment: 'production',
-      severity: 'High',
-      status: 'Open',
-      reporter: 'Monitoring',
-      assignee: 'Unassigned',
-      created: 'May 24, 2025 · 09:15 AM',
-      age: '1h 16m ago',
-      confidence: 78,
-      category: 'Performance',
-      aiSummary: 'Latency correlates with a connection-pool saturation pattern seen in the inventory dependency.',
-      similar: 5
-    },
-    {
-      id: 'INC-1040',
-      title: 'Database connection timeout errors',
-      description: 'Order API workers are intermittently timing out while establishing database connections.',
-      service: 'Database',
-      environment: 'production',
-      severity: 'Critical',
-      status: 'Investigating',
-      reporter: 'Samir Patel',
-      assignee: 'Priya Shah',
-      created: 'May 23, 2025 · 11:47 PM',
-      age: '11h 34m ago',
-      confidence: 89,
-      category: 'Availability',
-      aiSummary: 'Connection utilization crossed the threshold four minutes before the first timeout.',
-      similar: 8
-    },
-    {
-      id: 'INC-1039',
-      title: 'Auth service intermittent failures',
-      description: 'A small percentage of token refresh requests are returning an invalid session response.',
-      service: 'Authentication',
-      environment: 'production',
-      severity: 'Medium',
-      status: 'Resolved',
-      reporter: 'Monitoring',
-      assignee: 'Taylor Kim',
-      created: 'May 23, 2025 · 04:32 PM',
-      age: '18h 49m ago',
-      confidence: 65,
-      category: 'Authentication',
-      aiSummary: 'A stale signing-key cache caused the failures. The cache was refreshed and error rates recovered.',
-      similar: 2
-    },
-    {
-      id: 'INC-1038',
-      title: 'High memory usage on API nodes',
-      description: 'Memory usage exceeded 85 percent on two API gateway nodes.',
-      service: 'API Gateway',
-      environment: 'staging',
-      severity: 'High',
-      status: 'Open',
-      reporter: 'Monitoring',
-      assignee: 'Unassigned',
-      created: 'May 23, 2025 · 02:19 PM',
-      age: '23h 02m ago',
-      confidence: 71,
-      category: 'Resource',
-      aiSummary: 'Heap snapshots point to an unbounded response-buffer cache introduced this week.',
-      similar: 4
-    },
-    {
-      id: 'INC-1037',
-      title: 'Notification delivery delayed',
-      description: 'Email notifications are queued but delivered 18 to 24 minutes late.',
-      service: 'Notification',
-      environment: 'production',
-      severity: 'Low',
-      status: 'Blocked',
-      reporter: 'Support',
-      assignee: 'Alex Chen',
-      created: 'May 22, 2025 · 08:44 AM',
-      age: '1d 7h ago',
-      confidence: 58,
-      category: 'Delivery',
-      aiSummary: 'The provider reports a regional backlog; no corresponding application errors were detected.',
-      similar: 1
-    }
-  ];
+  constructor() {
+    void this.loadIncidents();
+  }
 
   readonly filteredIncidents = computed(() => {
     const query = this.searchTerm().trim().toLowerCase();
     const status = this.statusFilter();
     const severity = this.severityFilter();
 
-    return this.allIncidents().filter((incident) => {
+    return this.incidents().filter((incident) => {
       const matchesQuery =
         !query ||
         incident.id.toLowerCase().includes(query) ||
@@ -187,8 +72,25 @@ export class IncidentsComponent {
   });
 
   readonly selectedIncident = computed(
-    () => this.allIncidents().find((incident) => incident.id === this.selectedId()) ?? null
+    () => this.incidents().find((incident) => incident.id === this.selectedId()) ?? null
   );
+
+  async loadIncidents(): Promise<void> {
+    this.incidentsLoading.set(true);
+    this.incidentsError.set('');
+    try {
+      const page = await firstValueFrom(this.incidentsApi.list());
+      const incidents = page.content.map((record) => this.toIncident(record, null));
+      this.incidents.set(incidents);
+      if (!incidents.some((incident) => incident.id === this.selectedId())) {
+        this.selectedId.set(incidents[0]?.id ?? '');
+      }
+    } catch (error) {
+      this.incidentsError.set(this.errorMessage(error, 'Could not load incidents.'));
+    } finally {
+      this.incidentsLoading.set(false);
+    }
+  }
 
   openCreate(): void {
     this.analysis.set(null);
@@ -204,27 +106,7 @@ export class IncidentsComponent {
     this.formError.set('');
 
     try {
-      this.analysis.set(await firstValueFrom(this.http.post<IncidentAnalysis>(
-        `${environment.aiAnalysisBaseUrl}/api/v1/predictions/incident`,
-        {
-          title: this.stringValue(data, 'title'),
-          description: this.stringValue(data, 'description'),
-          service: this.stringValue(data, 'service'),
-          environment: this.stringValue(data, 'environment'),
-          origin: this.stringValue(data, 'origin'),
-          initial_context: {
-            error_code: this.stringValue(data, 'errorCode') || null,
-            http_status: this.numberValue(data, 'httpStatus'),
-            cpu_percent: this.numberValue(data, 'cpuPercent'),
-            memory_percent: this.numberValue(data, 'memoryPercent'),
-            latency_ms: this.numberValue(data, 'latencyMs'),
-            error_rate_percent: this.numberValue(data, 'errorRatePercent'),
-            affected_users: this.numberValue(data, 'affectedUsers'),
-            is_business_hours: data.get('isBusinessHours') === 'on',
-            is_weekend: data.get('isWeekend') === 'on'
-          }
-        }
-      )));
+      this.analysis.set(await firstValueFrom(this.incidentsApi.analyze(this.toRequest(data))));
     } catch (error) {
       this.formError.set(this.errorMessage(error, 'AI analysis is unavailable. You can still create the incident.'));
     } finally {
@@ -238,41 +120,72 @@ export class IncidentsComponent {
     const data = new FormData(form);
     this.createLoading.set(true);
     this.formError.set('');
+    const endpoint = `${environment.apiBaseUrl}/api/incidents`;
+    const request = this.toRequest(data);
+
+    if (!environment.production) {
+      console.debug('[Incidents] Creating incident', { endpoint });
+    }
 
     try {
-      const created: CreatedIncident = await firstValueFrom(this.http.post<CreatedIncident>(
-        `${environment.apiBaseUrl}/api/incidents`,
-        {
-          title: this.stringValue(data, 'title'),
-          description: this.stringValue(data, 'description'),
-          service: this.stringValue(data, 'service'),
-          environment: this.stringValue(data, 'environment'),
-          origin: this.stringValue(data, 'origin'),
-          severity: this.stringValue(data, 'severity'),
-          category: this.stringValue(data, 'category'),
-          initialContext: {
-            errorCode: this.stringValue(data, 'errorCode') || null,
-            httpStatus: this.numberValue(data, 'httpStatus'),
-            cpuPercent: this.numberValue(data, 'cpuPercent'),
-            memoryPercent: this.numberValue(data, 'memoryPercent'),
-            latencyMs: this.numberValue(data, 'latencyMs'),
-            errorRatePercent: this.numberValue(data, 'errorRatePercent'),
-            affectedUsers: this.numberValue(data, 'affectedUsers'),
-            isBusinessHours: data.get('isBusinessHours') === 'on',
-            isWeekend: data.get('isWeekend') === 'on'
+      let analysis = this.analysis();
+      if (!analysis) {
+        try {
+          analysis = await firstValueFrom(this.incidentsApi.analyze(request));
+        } catch (error) {
+          if (!environment.production) {
+            console.warn('[Incidents] AI advisory unavailable; continuing incident creation', error);
           }
         }
-      ));
+      }
 
-      const incident = this.toIncident(created);
-      this.createdIncidents.update((items) => [incident, ...items]);
+      const created = await firstValueFrom(this.incidentsApi.create(request));
+
+      const incident = this.toIncident(created, analysis);
+      this.incidents.update((items) => [incident, ...items.filter((item) => item.id !== incident.id)]);
       this.selectedId.set(incident.id);
       this.createOpen.set(false);
+      if (!environment.production) {
+        console.debug('[Incidents] Incident created', { incidentId: incident.id });
+      }
     } catch (error) {
+      if (!environment.production) {
+        console.error('[Incidents] Incident creation failed', {
+          status: error instanceof HttpErrorResponse ? error.status : 'unknown',
+          statusText: error instanceof HttpErrorResponse ? error.statusText : undefined,
+          message: error instanceof HttpErrorResponse || error instanceof Error
+            ? error.message
+            : 'Unknown error',
+          url: error instanceof HttpErrorResponse ? error.url : endpoint
+        });
+      }
       this.formError.set(this.errorMessage(error, 'Incident could not be created. Please try again.'));
     } finally {
       this.createLoading.set(false);
     }
+  }
+
+  private toRequest(data: FormData): CreateIncidentRequest {
+    return {
+      title: this.stringValue(data, 'title'),
+      description: this.stringValue(data, 'description'),
+      service: this.stringValue(data, 'service'),
+      environment: this.stringValue(data, 'environment'),
+      origin: this.stringValue(data, 'origin'),
+      severity: this.stringValue(data, 'severity'),
+      category: this.stringValue(data, 'category'),
+      initialContext: {
+        errorCode: this.stringValue(data, 'errorCode') || null,
+        httpStatus: this.numberValue(data, 'httpStatus'),
+        cpuPercent: this.numberValue(data, 'cpuPercent'),
+        memoryPercent: this.numberValue(data, 'memoryPercent'),
+        latencyMs: this.numberValue(data, 'latencyMs'),
+        errorRatePercent: this.numberValue(data, 'errorRatePercent'),
+        affectedUsers: this.numberValue(data, 'affectedUsers'),
+        isBusinessHours: data.get('isBusinessHours') === 'on',
+        isWeekend: data.get('isWeekend') === 'on'
+      }
+    };
   }
 
   private stringValue(data: FormData, name: string): string {
@@ -285,33 +198,49 @@ export class IncidentsComponent {
   }
 
   private errorMessage(error: unknown, fallback: string): string {
+    if (error instanceof HttpErrorResponse && error.status === 403) {
+      return 'Your account cannot create incidents. Sign in with a developer or admin account.';
+    }
     if (error instanceof HttpErrorResponse && error.status === 0) {
       return 'Could not reach the service. Check that the API is running and try again.';
     }
     return fallback;
   }
 
-  private toIncident(created: CreatedIncident): Incident {
-    const now = new Date();
+  private toIncident(created: IncidentRecord, analysis: IncidentAnalysis | null): Incident {
+    const createdAt = new Date(created.createdAt);
     return {
       id: created.incidentId,
       title: created.title,
       description: created.description,
       service: created.service,
-      environment: created.environment,
+      environment: this.displayEnum(created.environment),
       severity: this.displaySeverity(created.severity),
-      status: 'Open',
-      reporter: 'Support',
-      assignee: 'Unassigned',
-      created: now.toLocaleString(),
-      age: 'Just now',
-      confidence: Math.round((this.analysis()?.severity.confidence ?? 0) * 100),
-      category: created.category,
-      aiSummary: this.analysis()
-        ? `Estimated resolution time: ${this.analysis()!.resolution_time_hours.toFixed(1)} hours.`
-        : 'No AI analysis was run for this incident.',
-      similar: 0
+      status: this.displayStatus(created.status),
+      created: createdAt.toLocaleString(),
+      age: this.relativeAge(createdAt),
+      analysis,
+      category: this.displayEnum(created.category)
     };
+  }
+
+  private displayEnum(value: string): string {
+    return value.toLowerCase().replaceAll('_', ' ').replace(/\b\w/g, (letter) => letter.toUpperCase());
+  }
+
+  private displayStatus(value: string): IncidentStatus {
+    if (value === 'IN_PROGRESS') return 'In Progress';
+    if (value === 'CLOSED') return 'Closed';
+    return 'Open';
+  }
+
+  private relativeAge(date: Date): string {
+    const minutes = Math.max(0, Math.floor((Date.now() - date.getTime()) / 60_000));
+    if (minutes < 1) return 'Just now';
+    if (minutes < 60) return `${minutes}m ago`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `${hours}h ago`;
+    return `${Math.floor(hours / 24)}d ago`;
   }
 
   displaySeverity(value: string): Severity {
